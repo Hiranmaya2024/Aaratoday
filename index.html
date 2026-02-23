@@ -5,15 +5,13 @@
 <title>Aaradhya Today</title>
 
 <style>
-/* KEEPING YOUR PREMIUM UI */
 :root{
 --primary:#0d6efd;
 --bg:#eef2f7;
---card:#ffffff;
+--card:#fff;
 --success:#198754;
 --danger:#dc3545;
 --warning:#ff9800;
---radius:18px;
 }
 
 body{margin:0;font-family:system-ui;background:var(--bg);}
@@ -36,12 +34,32 @@ display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
 
 .partyList{max-height:280px;overflow:auto;}
 
+.grid{
+display:grid;grid-template-columns:repeat(2,1fr);
+gap:14px;padding:14px;
+}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1200px){.grid{grid-template-columns:repeat(4,1fr);}}
+
+.card{background:var(--card);padding:14px;border-radius:16px;}
+.blocked{border-left:6px solid var(--danger);}
+.active{border-left:6px solid var(--success);}
+
+.badge{padding:4px 10px;border-radius:999px;font-size:11px;color:#fff;margin-left:6px;}
+.badgeBlocked{background:var(--danger);}
+.badgeActive{background:var(--success);}
+.badgeFollow{background:var(--warning);}
+
 .iconBtn{
 height:54px;border:none;border-radius:14px;
 background:linear-gradient(135deg,#0d6efd,#3b82f6);
-color:#fff;font-size:22px;
-display:flex;align-items:center;justify-content:center;
+color:#fff;font-size:22px;width:100%;
 }
+
+.profile{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);overflow:auto;padding:20px;}
+.profileCard{background:#fff;border-radius:18px;padding:20px;max-width:720px;margin:auto;}
+.actionRow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;}
+input{width:100%;padding:12px;margin-top:12px;border-radius:12px;border:1px solid #ddd;}
 </style>
 </head>
 
@@ -52,7 +70,6 @@ display:flex;align-items:center;justify-content:center;
 <div class="header">Aaradhya Today</div>
 
 <div class="statusBar">
-
 <div id="dataInfo"></div>
 
 <div>
@@ -68,10 +85,11 @@ Day :
 
 <button onclick="fetchData()">🔄</button>
 </div>
-
 </div>
 
 <div id="routeBox"></div>
+<div id="grid" class="grid"></div>
+<div id="profile" class="profile" style="display:none"></div>
 
 </div>
 
@@ -143,19 +161,25 @@ rows=rows.filter(r=>r[0])
 customers=rows.map(r=>({
 name:r[0],
 area:r[1],
+status:(r[2]||"").toLowerCase(),
+business:r[5],
+due:parseFloat(r[6])||0,
+phone:r[13],
 lat:parseFloat(r[14]),
-lng:parseFloat(r[15])
+lng:parseFloat(r[15]),
+lastSale:r[17],
+lastCollection:r[18],
+route:r[19]
 }))
+
+customers.sort((a,b)=>b.due-a.due)
 
 render()
 }
 
 function getTodayRoute(){
 let areas=tourPlan[selectedDay]||[]
-
-return customers.filter(c=>
-areas.some(a=>normalize(a)===normalize(c.area))
-)
+return customers.filter(c=>areas.some(a=>normalize(a)===normalize(c.area)))
 }
 
 function calcDistance(route){
@@ -173,9 +197,7 @@ function render(){
 
 let todayRoute=getTodayRoute()
 
-todayRoute.sort((a,b)=>
-getDistance(HQ,a)-getDistance(HQ,b)
-)
+todayRoute.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
 
 let visitedCount=visited.filter(v=>todayRoute.some(p=>p.name===v)).length
 
@@ -184,36 +206,54 @@ let remaining=todayRoute.length-visitedCount
 let distance=calcDistance(todayRoute)
 
 routeBox.innerHTML=`
-
 <div class="routeGrid">
 
 <div>
-
 ✔ Parties: ${todayRoute.length}<br>
 👣 Visited: ${visitedCount} / ${remaining}<br>
 💰 ₹${getTodayCollection()}<br>
 📏 ${distance.toFixed(1)} km<br>
 ⏱ ${(distance/25).toFixed(1)} hr<br>
-
 <button class="iconBtn" onclick="startTour()">🧭</button>
-
 </div>
 
 <div class="partyList">
-
 ${todayRoute.map(c=>`
 <div onclick="openProfile('${c.name}')">
-
 <b>${c.name}</b><br>
 📍 ${getDistance(HQ,c).toFixed(1)} km
-
 </div><br>
 `).join("")}
-
 </div>
 
 </div>
 `
+
+grid.innerHTML=""
+
+customers.forEach(c=>{
+
+let isBlocked=c.status.includes("blocked")
+
+let statusClass=isBlocked?"blocked":"active"
+
+let statusBadge=isBlocked
+?'<span class="badge badgeBlocked">BLOCKED</span>'
+:'<span class="badge badgeActive">ACTIVE</span>'
+
+let followBadge=c.due==0?'<span class="badge badgeFollow">FOLLOW-UP</span>':""
+
+grid.innerHTML+=`
+<div class="card ${statusClass}" onclick="openProfile('${c.name}')">
+<b>${c.name}</b><br>
+${c.area}<br>
+₹${c.due}<br>
+📍 ${getDistance(HQ,c).toFixed(1)} km
+${statusBadge}${followBadge}
+</div>
+`
+})
+
 }
 
 function startTour(){
@@ -222,8 +262,57 @@ let waypoints=route.slice(0,9).map(p=>`${p.lat},${p.lng}`).join("/")
 window.open(`https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`)
 }
 
+function openProfile(name){
+let c=customers.find(x=>x.name==name)
+profile.style.display="block"
+profile.innerHTML=`
+<div class="profileCard">
+
+<button class="iconBtn" onclick="profile.style.display='none'">⬅</button>
+
+<h2>${c.name}</h2>
+
+📞 <a href="tel:${c.phone}">${c.phone}</a><br>
+Area: ${c.area}<br>
+Total Business: ${c.business}<br>
+Total Due: ${c.due}<br>
+
+📅 ${c.lastSale}<br>
+💰 ${c.lastCollection}<br>
+🗺 ${c.route}<br>
+
+<input id="amt" placeholder="Enter collection">
+
+<div class="actionRow">
+<button class="iconBtn" onclick="saveCollection('${c.name}')">💾</button>
+<button class="iconBtn" onclick="markVisited('${c.name}')">✅</button>
+<button class="iconBtn" onclick="window.open('tel:${c.phone}')">📞</button>
+<button class="iconBtn" onclick="window.open('https://wa.me/91${c.phone}')">💬</button>
+<button class="iconBtn" onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">📍</button>
+</div>
+
+</div>`
+}
+
+function saveCollection(name){
+let amt=document.getElementById("amt").value
+collections.push({party:name,amount:amt})
+localStorage.setItem("collections",JSON.stringify(collections))
+render()
+}
+
+function markVisited(name){
+if(!visited.includes(name)){
+visited.push(name)
+localStorage.setItem("visited",JSON.stringify(visited))
+}
+profile.style.display="none"
+render()
+}
+
 fetchData()
 
 </script>
+
 </body>
 </html>
