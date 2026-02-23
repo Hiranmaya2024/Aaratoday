@@ -13,25 +13,15 @@
 body{font-family:Poppins;margin:0;background:#f4f6f9}
 .header{background:#0d6efd;color:#fff;padding:14px;font-weight:600}
 .statusBar{padding:6px 14px;font-size:13px;background:#fff}
-
-.routeBox{background:#fff;margin:10px;padding:14px;border-radius:14px;
-display:grid;grid-template-columns:1fr 1fr;gap:14px;
-box-shadow:0 2px 10px rgba(0,0,0,0.08)}
-
+.btnRow{padding:6px 14px;background:#fff;display:flex;gap:10px}
+button{padding:8px 12px;border:none;border-radius:6px;background:#0d6efd;color:#fff}
+.routeBox{background:#fff;margin:10px;padding:14px;border-radius:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid{padding:10px;display:grid;gap:12px}
-.customer{background:#fff;padding:14px;border-radius:12px;
-box-shadow:0 2px 6px rgba(0,0,0,0.08)}
-
+.customer{background:#fff;padding:14px;border-radius:12px}
 .profileWrapper{background:#f4f6f9;min-height:100vh}
-.profileHeader{background:linear-gradient(135deg,#2b6cb0,#1e4e8c);
-color:#fff;padding:18px;font-weight:600;display:flex;gap:10px}
-
-.profileCard{background:#fff;margin:15px;padding:18px;border-radius:18px}
-.backBtn{background:#ffffff33;border:none;color:#fff;padding:6px 12px;border-radius:8px}
-
-.tour{background:#ff9800;width:100%;padding:12px;border:none;border-radius:8px;color:#fff;margin-top:10px}
-
-input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #ccc}
+.profileHeader{background:#0d6efd;color:#fff;padding:14px;display:flex;gap:10px}
+.tour{background:#ff9800;width:100%;margin-top:10px}
+input,select{width:100%;padding:10px;margin:6px 0}
 </style>
 </head>
 
@@ -40,7 +30,13 @@ input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px s
 <div id="mainScreen">
 
 <div class="header">Aaradhya Today</div>
+
 <div id="dataStatus" class="statusBar"></div>
+
+<div class="btnRow">
+<button onclick="forceRefresh()">🔄 Refresh</button>
+<button onclick="clearCache()">🧹 Clear Cache</button>
+</div>
 
 <div id="routeBox" class="routeBox"></div>
 <div id="customerGrid" class="grid"></div>
@@ -51,7 +47,9 @@ input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px s
 
 <script>
 
-const csvUrl="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
+function getCSVUrl(){
+return "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv&nocache="+new Date().getTime()
+}
 
 const tourPlan={
 Monday:["Juria"],Tuesday:["Ghess"],Wednesday:["Gaisilate"],
@@ -60,7 +58,6 @@ Thursday:["Dava"],Friday:["Padampur"],Saturday:["Paikmal","Mandosil"]
 
 const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
 const todayAreas=tourPlan[today]||[]
-const todayKey=new Date().toDateString()
 
 let customers=[],todayRoute=[],selected={}
 let visitedParties=JSON.parse(localStorage.getItem("visitedParties")||"[]")
@@ -78,25 +75,57 @@ function updateStatus(msg){
 document.getElementById("dataStatus").innerHTML=msg
 }
 
+function fetchData(){
+
 updateStatus("🔄 Syncing latest data...")
 
-fetch(csvUrl)
+fetch(getCSVUrl())
 .then(res=>res.text())
 .then(text=>{
+
 localStorage.setItem("customerCSV",text)
-localStorage.setItem("lastSync",new Date().toLocaleTimeString())
-updateStatus("🟢 Live data")
+
+let time=new Date().toLocaleTimeString()
+localStorage.setItem("lastSync",time)
+
+updateStatus("🟢 Live data • "+time)
+
 loadData(text)
+
 })
 .catch(()=>{
+
 let offlineData=localStorage.getItem("customerCSV")
+
 if(offlineData){
-updateStatus("🟠 Offline data")
+updateStatus("🟠 Offline data • "+localStorage.getItem("lastSync"))
 loadData(offlineData)
 }else{
 updateStatus("❌ No data available")
 }
+
 })
+}
+
+function forceRefresh(){
+fetchData()
+}
+
+function clearCache(){
+
+localStorage.clear()
+
+caches.keys().then(names=>{
+for (let name of names) caches.delete(name)
+})
+
+alert("Cache cleared. Reloading...")
+location.reload()
+}
+
+fetchData()
+
+setInterval(fetchData,120000)
 
 function parseCSV(text){
 const rows=[];let row=[],value="",insideQuotes=false
@@ -115,9 +144,7 @@ function loadData(text){
 let rows=parseCSV(text).slice(1).filter(r=>r[0])
 
 customers=rows.map(r=>({
-name:r[0],
-area:r[1],
-due:r[6],
+name:r[0],area:r[1],due:r[6],
 phone:r[13],
 lat:parseFloat(r[14]),
 lng:parseFloat(r[15]),
@@ -154,7 +181,7 @@ let nextHTML="Tour Completed 🎉"
 if(next){
 let dist=getDistance(next.lat,next.lng).toFixed(2)
 let time=(dist/25*60).toFixed(0)
-nextHTML=`<b>Next:</b> ${next.name}`
+nextHTML=`<b>Next:</b> ${next.name}<br>📏 ${dist} km ⏱ ${time} min`
 }
 
 routeBox.innerHTML=`
@@ -171,8 +198,10 @@ ${todayRoute.map(c=>`<div onclick="openProfile('${c.name}')">${c.name}</div>`).j
 
 customerGrid.innerHTML=""
 customers.forEach(c=>{
-customerGrid.innerHTML+=`<div class="customer" onclick="openProfile('${c.name}')">
-<b>${c.name}</b><br>${c.area} | ₹${c.due}</div>`
+customerGrid.innerHTML+=`
+<div class="customer" onclick="openProfile('${c.name}')">
+<b>${c.name}</b><br>${c.area} | ₹${c.due}
+</div>`
 })
 }
 
@@ -186,12 +215,10 @@ profileScreen.style.display="block"
 profileScreen.innerHTML=`
 <div class="profileWrapper">
 <div class="profileHeader">
-<button class="backBtn" onclick="goBack()">⬅ Back</button>Profile
+<button onclick="goBack()">⬅ Back</button>${selected.name}
 </div>
 
 <div class="profileCard">
-
-<h2>${selected.name}</h2>
 
 <div>📅 ${selected.lastSale}</div>
 <div>💰 ${selected.lastCollection}</div>
@@ -208,8 +235,10 @@ profileScreen.innerHTML=`
 
 function saveCollection(){
 let amt=document.getElementById("amt").value
+if(!amt)return alert("Enter amount")
 collections.push({party:selected.name,amount:amt})
 localStorage.setItem("collections",JSON.stringify(collections))
+renderAll()
 }
 
 function visitDone(){
@@ -222,6 +251,10 @@ function goBack(){
 profileScreen.style.display="none"
 mainScreen.style.display="block"
 renderAll()
+}
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register('service-worker.js')
 }
 
 </script>
