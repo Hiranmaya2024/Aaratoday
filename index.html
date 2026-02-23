@@ -6,28 +6,82 @@
 
 <style>
 body{font-family:Arial;margin:0;background:#f2f2f2}
-.header{background:#0d6efd;color:#fff;padding:14px;font-weight:bold}
+.header{background:#0d6efd;color:#fff;padding:14px;font-size:18px;font-weight:bold}
+
 .box{background:#fff;margin:10px;padding:12px;border-radius:12px}
+
 .routeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;padding:10px}
-.card{background:#fff;padding:12px;border-radius:10px}
-button{padding:10px;border:none;border-radius:8px;background:#0d6efd;color:#fff;margin-top:6px}
 .partyList{max-height:200px;overflow:auto;font-size:13px}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+gap:10px;
+padding:10px
+}
+
+.card{
+background:#fff;
+padding:14px;
+border-radius:12px;
+font-size:14px
+}
+
+.tagBlocked{color:red;font-weight:bold}
+.tagCollect{color:green;font-weight:bold}
+
+button{
+padding:12px;
+border:none;
+border-radius:8px;
+background:#0d6efd;
+color:#fff;
+width:100%;
+margin-top:8px;
+font-size:15px
+}
+
+.profile{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#f2f2f2;
+overflow:auto;
+z-index:10
+}
+
+.profileCard{
+background:#fff;
+margin:10px;
+padding:16px;
+border-radius:14px
+}
+
+.actionRow{
+display:flex;
+gap:10px;
+margin-top:10px
+}
+
+.actionRow button{flex:1}
 </style>
 </head>
 
 <body>
 
 <div class="header">Aaradhya Today</div>
+
 <div id="status" class="box"></div>
-
 <div id="routeBox" class="box"></div>
-
 <div id="grid" class="grid"></div>
 
-<div id="profile" style="display:none"></div>
+<div id="profile" class="profile" style="display:none"></div>
 
 <script>
+
+const CSV_LINK="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
 
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
@@ -45,10 +99,23 @@ const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
 const todayAreas=tourPlan[today]||[]
 
 function getCSVUrl(){
-return "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv&nocache="+Date.now()
+return CSV_LINK+"&nocache="+Date.now()
 }
 
 function updateStatus(t){status.innerHTML=t}
+
+function parseCSV(text){
+const rows=[];let row=[],value="",insideQuotes=false
+for(let char of text){
+if(char=='"'){insideQuotes=!insideQuotes;continue}
+if(char==","&&!insideQuotes){row.push(value);value="";continue}
+if((char=="\n"||char=="\r")&&!insideQuotes){
+if(value||row.length){row.push(value);rows.push(row)}
+row=[];value="";continue}
+value+=char
+}
+return rows
+}
 
 function getDistance(lat,lng){
 const R=6371
@@ -60,23 +127,6 @@ Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
-function calcRouteDistance(list){
-let total=0
-let prevLat=HQ_LAT
-let prevLng=HQ_LNG
-
-list.forEach(p=>{
-total+=getDistance(p.lat,p.lng)
-prevLat=p.lat
-prevLng=p.lng
-})
-
-total+=getDistance(HQ_LAT,HQ_LNG)
-return total
-}
-
-function parseCSV(t){return t.split("\n").map(e=>e.split(","))}
-
 function fetchData(){
 
 updateStatus("🔄 Syncing latest data...")
@@ -85,7 +135,7 @@ fetch(getCSVUrl())
 .then(r=>r.text())
 .then(text=>{
 localStorage.setItem("csv",text)
-updateStatus("🟢 Live data "+new Date().toLocaleTimeString())
+updateStatus("🟢 Live data • "+new Date().toLocaleTimeString())
 loadData(text)
 })
 .catch(()=>{
@@ -93,12 +143,11 @@ let data=localStorage.getItem("csv")
 updateStatus("🟠 Offline data")
 loadData(data)
 })
-
 }
 
 function loadData(text){
 
-let rows=parseCSV(text).slice(1)
+let rows=parseCSV(text).slice(1).filter(r=>r[0])
 
 customers=rows.map(r=>({
 name:r[0],
@@ -121,7 +170,12 @@ customers.sort((a,b)=>b.due-a.due)
 todayRoute=customers.filter(c=>todayAreas.includes(c.area))
 
 render()
+}
 
+function calcRouteDistance(list){
+let total=0
+list.forEach(p=>total+=getDistance(p.lat,p.lng))
+return total*2
 }
 
 function render(){
@@ -130,43 +184,30 @@ let routeDistance=calcRouteDistance(todayRoute)
 let time=(routeDistance/25).toFixed(1)
 
 routeBox.innerHTML=`
-<div class="routeGrid">
-
-<div>
 <b>🗓 Today’s Route – ${todayAreas.join(", ")}</b><br>
-✔ Parties: ${todayRoute.length}<br>
-✔ Round trip: ${routeDistance.toFixed(1)} km<br>
-✔ Travel time: ${time} hr<br>
-<button onclick="startTour()">Start Tour</button>
-</div>
-
-<div class="partyList">
-${todayRoute.map((c,i)=>`
-${i+1}. ${c.name}<br>
-📍 ${getDistance(c.lat,c.lng).toFixed(1)} km<br><br>
-`).join("")}
-</div>
-
-</div>
+Parties: ${todayRoute.length}<br>
+📏 ${routeDistance.toFixed(1)} km<br>
+⏱ ${time} hr
 `
 
 grid.innerHTML=""
 
 customers.forEach(c=>{
 
-let tag=c.status=="Blocked"?"🔴 BLOCKED":c.due>0?"💰 COLLECT":""
+let tag=c.status=="Blocked"
+?`<div class="tagBlocked">BLOCKED</div>`
+:c.due>0
+?`<div class="tagCollect">COLLECT</div>`:""
 
 grid.innerHTML+=`
 <div class="card" onclick="openProfile('${c.name}')">
 <b>${c.name}</b><br>
 ${c.area}<br>
 ₹${c.due}<br>
-📍 ${getDistance(c.lat,c.lng).toFixed(1)} km<br>
+📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
 ${tag}
 </div>`
-
 })
-
 }
 
 function openProfile(name){
@@ -176,11 +217,11 @@ let c=customers.find(x=>x.name==name)
 profile.style.display="block"
 
 profile.innerHTML=`
-<div class="box">
+<div class="profileCard">
 
 <button onclick="profile.style.display='none'">⬅ Back</button>
 
-<h3>${c.name}</h3>
+<h2>${c.name}</h2>
 
 📞 <a href="tel:${c.phone}">${c.phone}</a><br>
 Area: ${c.area}<br>
@@ -188,25 +229,19 @@ Total Business: ${c.business}<br>
 Total Due: ${c.due}<br>
 Status: ${c.status}<br>
 Reason: ${c.reason}<br>
-Reactivate: ${c.reactivate}<br>
+Reactivate: ${c.reactivate}<br><br>
 
-Last Sale: ${c.lastSale}<br>
-Last Payment: ${c.lastCollection}<br>
-Route: ${c.route}<br>
+📅 Last Sale: ${c.lastSale}<br>
+💰 Last Payment: ${c.lastCollection}<br>
+🗺 Route: ${c.route}<br>
 
+<div class="actionRow">
 <button onclick="window.open('https://wa.me/91${c.phone}')">WhatsApp</button>
 <button onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">Navigate</button>
+</div>
 
 </div>
 `
-}
-
-function startTour(){
-
-let waypoints=todayRoute.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
-
-window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${waypoints}/${HQ_LAT},${HQ_LNG}`)
-
 }
 
 fetchData()
