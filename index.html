@@ -10,8 +10,9 @@ body{font-family:Arial;margin:0;background:#f2f2f2}
 
 .box{background:#fff;margin:10px;padding:12px;border-radius:12px}
 
-.routeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.partyList{max-height:200px;overflow:auto;font-size:13px}
+.routeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.partyList{max-height:220px;overflow:auto;font-size:13px}
 
 .grid{
 display:grid;
@@ -64,7 +65,6 @@ display:flex;
 gap:10px;
 margin-top:10px
 }
-
 .actionRow button{flex:1}
 </style>
 </head>
@@ -74,7 +74,9 @@ margin-top:10px
 <div class="header">Aaradhya Today</div>
 
 <div id="status" class="box"></div>
+
 <div id="routeBox" class="box"></div>
+
 <div id="grid" class="grid"></div>
 
 <div id="profile" class="profile" style="display:none"></div>
@@ -184,10 +186,33 @@ let routeDistance=calcRouteDistance(todayRoute)
 let time=(routeDistance/25).toFixed(1)
 
 routeBox.innerHTML=`
-<b>🗓 Today’s Route – ${todayAreas.join(", ")}</b><br>
-Parties: ${todayRoute.length}<br>
-📏 ${routeDistance.toFixed(1)} km<br>
-⏱ ${time} hr
+
+<div class="routeGrid">
+
+<div>
+
+<b>🗓 Today’s Route – ${todayAreas.join(", ")}</b><br><br>
+
+✔ Parties: ${todayRoute.length}<br>
+✔ Round-trip km: ${routeDistance.toFixed(1)}<br>
+✔ Travel time: ${time} hr<br>
+
+<button onclick="startTour()">Start Tour</button>
+
+</div>
+
+<div class="partyList">
+
+${todayRoute.map(c=>`
+<div onclick="openProfile('${c.name}')">
+<b>${c.name}</b><br>
+📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
+</div><br>
+`).join("")}
+
+</div>
+
+</div>
 `
 
 grid.innerHTML=""
@@ -242,6 +267,14 @@ Reactivate: ${c.reactivate}<br><br>
 
 </div>
 `
+}
+
+function startTour(){
+
+let waypoints=todayRoute.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
+
+window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${waypoints}/${HQ_LAT},${HQ_LNG}`)
+
 }
 
 fetchData()
