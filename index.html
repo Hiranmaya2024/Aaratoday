@@ -7,125 +7,170 @@
 <style>
 
 :root{
---blue:#0d6efd;
---bg:#f2f2f2;
+--primary:#0d6efd;
+--bg:#eef2f7;
+--card:#ffffff;
+--text:#1f2933;
+--success:#198754;
+--danger:#dc3545;
+--warning:#ff9800;
+--radius:18px;
 }
 
-body{font-family:Arial;margin:0;background:var(--bg)}
+body{
+margin:0;
+font-family:system-ui,-apple-system,Segoe UI,Roboto;
+background:var(--bg);
+color:var(--text);
+}
+
+.app{
+max-width:1400px;
+margin:auto;
+}
+
+/* HEADER */
 
 .header{
-background:var(--blue);
+position:sticky;
+top:0;
+background:linear-gradient(135deg,#0d6efd,#3b82f6);
 color:#fff;
-padding:14px;
-font-size:18px;
-font-weight:bold
+padding:16px;
+font-size:20px;
+font-weight:600;
+box-shadow:0 4px 14px rgba(0,0,0,0.12);
+z-index:10;
 }
+
+/* STATUS BAR */
 
 .statusBar{
-background:#fff;
-margin:10px;
-padding:10px;
-border-radius:12px;
+margin:14px;
+padding:12px 16px;
+border-radius:18px;
+background:rgba(255,255,255,0.7);
+backdrop-filter:blur(10px);
 display:flex;
 justify-content:space-between;
+align-items:center;
 flex-wrap:wrap;
-gap:8px
+gap:10px;
+box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* ROUTE BOX */
+/* ROUTE */
 
 .routeGrid{
 display:grid;
-gap:12px;
-padding:10px
+gap:16px;
+margin:14px;
 }
 
 @media(min-width:768px){
-.routeGrid{grid-template-columns:1fr 1fr}
+.routeGrid{grid-template-columns:1fr 1fr;}
 }
 
 .partyList{
-max-height:260px;
+max-height:280px;
 overflow:auto;
-font-size:13px
 }
 
 /* GRID */
 
 .grid{
 display:grid;
-gap:12px;
-padding:10px
+grid-template-columns:repeat(2,1fr);
+gap:14px;
+padding:14px;
 }
 
-@media(min-width:480px){
-.grid{grid-template-columns:repeat(2,1fr)}
+@media(min-width:700px){
+.grid{grid-template-columns:repeat(3,1fr);}
 }
 
-@media(min-width:900px){
-.grid{grid-template-columns:repeat(3,1fr)}
+@media(min-width:1200px){
+.grid{grid-template-columns:repeat(4,1fr);}
 }
 
 /* CARD */
 
 .card{
-background:#fff;
-padding:14px;
-border-radius:14px;
-font-size:14px
+background:var(--card);
+padding:16px;
+border-radius:18px;
+box-shadow:0 6px 18px rgba(0,0,0,0.08);
 }
 
-.blocked{border-left:6px solid red}
-.active{border-left:6px solid green}
-
-/* BADGES */
+.blocked{border-left:6px solid var(--danger);}
+.active{border-left:6px solid var(--success);}
 
 .badge{
-padding:2px 6px;
-border-radius:6px;
-font-size:10px;
+padding:4px 10px;
+border-radius:999px;
+font-size:11px;
+font-weight:600;
+margin-left:6px;
 color:#fff;
-margin-left:4px
 }
 
-.badgeBlocked{background:red}
-.badgeActive{background:green}
-.badgeFollow{background:#ff9800}
-.newTag{background:#673ab7}
+.badgeBlocked{background:var(--danger);}
+.badgeActive{background:var(--success);}
+.badgeFollow{background:var(--warning);}
+.newTag{background:#7c3aed;}
 
 /* PROFILE */
 
 .profile{
 position:fixed;
-top:0;left:0;
-width:100%;height:100%;
+top:0;
+left:0;
+width:100%;
+height:100%;
 background:var(--bg);
-overflow:auto
+overflow:auto;
+padding:20px;
+z-index:100;
 }
 
 .profileCard{
 background:#fff;
-margin:10px;
-padding:16px;
-border-radius:14px
+border-radius:18px;
+padding:20px;
+max-width:720px;
+margin:auto;
+box-shadow:0 10px 30px rgba(0,0,0,0.12);
 }
 
-/* ICON BUTTONS */
+/* BUTTONS */
 
 .iconBtn{
-font-size:20px;
-padding:12px;
+height:54px;
 border:none;
-border-radius:12px;
-background:var(--blue);
+border-radius:14px;
+background:linear-gradient(135deg,#0d6efd,#3b82f6);
 color:#fff;
-flex:1
+font-size:22px;
+display:flex;
+align-items:center;
+justify-content:center;
+flex:1;
 }
 
 .actionRow{
-display:flex;
-gap:10px;
-margin-top:10px
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:12px;
+margin-top:18px;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-top:12px;
+border-radius:12px;
+border:1px solid #ddd;
+font-size:15px;
 }
 
 </style>
@@ -133,10 +178,12 @@ margin-top:10px
 
 <body>
 
+<div class="app">
+
 <div class="header">Aaradhya Today</div>
 
 <div class="statusBar">
-<div id="dataInfo"></div>
+<div id="dataInfo">Loading...</div>
 <div>
 <button onclick="fetchData()">🔄</button>
 <button onclick="clearCache()">🧹</button>
@@ -145,7 +192,10 @@ margin-top:10px
 
 <div id="routeBox"></div>
 <div id="grid" class="grid"></div>
+
 <div id="profile" class="profile" style="display:none"></div>
+
+</div>
 
 <script>
 
@@ -153,6 +203,9 @@ const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7
 
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
+
+let visited=JSON.parse(localStorage.getItem("visited")||"[]")
+let collections=JSON.parse(localStorage.getItem("collections")||"[]")
 
 function getDistance(lat,lng){
 const R=6371
@@ -162,10 +215,6 @@ const a=Math.sin(dLat/2)**2+
 Math.cos(HQ_LAT*Math.PI/180)*Math.cos(lat*Math.PI/180)*
 Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
-}
-
-function parseCSV(text){
-return text.split("\n").map(e=>e.split(","))
 }
 
 function fetchData(){
@@ -178,7 +227,10 @@ fetch(CSV+"&nocache="+Date.now())
 dataInfo.innerHTML="🟢 "+new Date().toLocaleTimeString()
 loadData(text)
 })
+}
 
+function parseCSV(text){
+return text.split("\n").map(e=>e.split(","))
 }
 
 function loadData(text){
@@ -208,6 +260,8 @@ render()
 
 function render(){
 
+let routeDistance=calcDistance()
+
 routeBox.innerHTML=`
 
 <div class="routeGrid">
@@ -217,8 +271,8 @@ routeBox.innerHTML=`
 <b>🧭 Route Summary</b><br><br>
 
 ✔ Parties: ${customers.length}<br>
-📏 ${(calcDistance()).toFixed(1)} km<br>
-⏱ ${(calcDistance()/25).toFixed(1)} hr<br>
+📏 ${routeDistance.toFixed(1)} km<br>
+⏱ ${(routeDistance/25).toFixed(1)} hr<br>
 
 <button class="iconBtn" onclick="startTour()">🧭</button>
 
@@ -228,10 +282,8 @@ routeBox.innerHTML=`
 
 ${customers.map(c=>`
 <div onclick="openProfile('${c.name}')">
-
 <b>${c.name}</b><br>
 📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
-
 </div><br>`).join("")}
 
 </div>
@@ -288,7 +340,7 @@ profile.innerHTML=`
 
 <div class="profileCard">
 
-<button class="iconBtn" onclick="profile.style.display='none'">⬅</button>
+<button class="iconBtn" style="max-width:60px" onclick="profile.style.display='none'">⬅</button>
 
 <h2>${c.name}</h2>
 
@@ -301,9 +353,14 @@ Total Due: ${c.due}<br>
 💰 ${c.lastCollection}<br>
 🗺 ${c.route}<br>
 
+<input id="amt" placeholder="Enter collection">
+
 <div class="actionRow">
 
+<button class="iconBtn" onclick="saveCollection('${c.name}')">💾</button>
+<button class="iconBtn" onclick="markVisited('${c.name}')">✅</button>
 <button class="iconBtn" onclick="window.open('tel:${c.phone}')">📞</button>
+
 <button class="iconBtn" onclick="window.open('https://wa.me/91${c.phone}')">💬</button>
 <button class="iconBtn" onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">📍</button>
 
@@ -311,6 +368,20 @@ Total Due: ${c.due}<br>
 
 </div>
 `
+}
+
+function saveCollection(name){
+let amt=document.getElementById("amt").value
+collections.push({party:name,amount:amt})
+localStorage.setItem("collections",JSON.stringify(collections))
+}
+
+function markVisited(name){
+if(!visited.includes(name)){
+visited.push(name)
+localStorage.setItem("visited",JSON.stringify(visited))
+}
+profile.style.display="none"
 }
 
 function startTour(){
@@ -327,5 +398,6 @@ location.reload()
 fetchData()
 
 </script>
+
 </body>
 </html>
