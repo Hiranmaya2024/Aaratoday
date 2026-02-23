@@ -17,135 +17,69 @@
 --radius:18px;
 }
 
-body{
-margin:0;
-font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:var(--bg);
-color:var(--text);
-}
-
+body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text);}
 .app{max-width:1400px;margin:auto;}
 
 .header{
-position:sticky;
-top:0;
+position:sticky;top:0;
 background:linear-gradient(135deg,#0d6efd,#3b82f6);
-color:#fff;
-padding:16px;
-font-size:20px;
-font-weight:600;
-box-shadow:0 4px 14px rgba(0,0,0,0.12);
-z-index:10;
+color:#fff;padding:16px;font-size:20px;font-weight:600;
 }
 
 .statusBar{
-margin:14px;
-padding:12px 16px;
-border-radius:18px;
+margin:14px;padding:12px 16px;border-radius:18px;
 background:rgba(255,255,255,0.7);
-backdrop-filter:blur(10px);
-display:flex;
-justify-content:space-between;
-align-items:center;
-flex-wrap:wrap;
-gap:10px;
-box-shadow:0 4px 12px rgba(0,0,0,0.08);
+display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
 }
 
-.routeGrid{
-display:grid;
-gap:16px;
-margin:14px;
-}
-
-@media(min-width:768px){
-.routeGrid{grid-template-columns:1fr 1fr;}
-}
+.routeGrid{display:grid;gap:16px;margin:14px;}
+@media(min-width:768px){.routeGrid{grid-template-columns:1fr 1fr;}}
 
 .partyList{max-height:280px;overflow:auto;}
 
 .grid{
-display:grid;
-grid-template-columns:repeat(2,1fr);
-gap:14px;
-padding:14px;
+display:grid;grid-template-columns:repeat(2,1fr);
+gap:14px;padding:14px;
 }
-
 @media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:1200px){.grid{grid-template-columns:repeat(4,1fr);}}
 
-/* CARD */
-
 .card{
-background:var(--card);
-padding:16px;
-border-radius:18px;
+background:var(--card);padding:16px;border-radius:18px;
 box-shadow:0 6px 18px rgba(0,0,0,0.08);
 }
 
 .blocked{border-left:6px solid var(--danger);}
 .active{border-left:6px solid var(--success);}
 
-.badge{
-padding:4px 10px;
-border-radius:999px;
-font-size:11px;
-font-weight:600;
-margin-left:6px;
-color:#fff;
-}
-
+.badge{padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-left:6px;color:#fff;}
 .badgeBlocked{background:var(--danger);}
 .badgeActive{background:var(--success);}
 .badgeFollow{background:var(--warning);}
-.newTag{background:#7c3aed;}
 
 .profile{
-position:fixed;
-top:0;left:0;
-width:100%;height:100%;
-background:var(--bg);
-overflow:auto;
-padding:20px;
-z-index:100;
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:var(--bg);overflow:auto;padding:20px;z-index:100;
 }
 
 .profileCard{
-background:#fff;
-border-radius:18px;
-padding:20px;
-max-width:720px;
-margin:auto;
-box-shadow:0 10px 30px rgba(0,0,0,0.12);
+background:#fff;border-radius:18px;padding:20px;
+max-width:720px;margin:auto;
 }
 
 .iconBtn{
-height:54px;
-border:none;
-border-radius:14px;
+height:54px;border:none;border-radius:14px;
 background:linear-gradient(135deg,#0d6efd,#3b82f6);
-color:#fff;
-font-size:22px;
-display:flex;
-align-items:center;
-justify-content:center;
-flex:1;
+color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;flex:1;
 }
 
 .actionRow{
-display:grid;
-grid-template-columns:repeat(3,1fr);
-gap:12px;
-margin-top:18px;
+display:grid;grid-template-columns:repeat(3,1fr);
+gap:12px;margin-top:18px;
 }
 
-input{
-width:100%;
-padding:12px;
-margin-top:12px;
-border-radius:12px;
-border:1px solid #ddd;
-font-size:15px;
+select{
+padding:8px;border-radius:10px;border:1px solid #ccc;
 }
 
 </style>
@@ -158,11 +92,24 @@ font-size:15px;
 <div class="header">Aaradhya Today</div>
 
 <div class="statusBar">
+
 <div id="dataInfo">Loading...</div>
+
 <div>
+Day :
+<select id="daySelect" onchange="changeDay(this.value)">
+<option>Monday</option>
+<option>Tuesday</option>
+<option>Wednesday</option>
+<option>Thursday</option>
+<option>Friday</option>
+<option>Saturday</option>
+</select>
+
 <button onclick="fetchData()">🔄</button>
 <button onclick="clearCache()">🧹</button>
 </div>
+
 </div>
 
 <div id="routeBox"></div>
@@ -179,8 +126,24 @@ const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
 
-let visited=JSON.parse(localStorage.getItem("visited")||"[]")
-let collections=JSON.parse(localStorage.getItem("collections")||"[]")
+const tourPlan={
+Monday:["Juria"],
+Tuesday:["Ghess"],
+Wednesday:["Gaisilate"],
+Thursday:["Dava"],
+Friday:["Padampur"],
+Saturday:["Paikmal","Mandosil"]
+}
+
+let selectedDay=new Date().toLocaleDateString('en-US',{weekday:'long'})
+document.addEventListener("DOMContentLoaded",()=>{
+daySelect.value=selectedDay
+})
+
+function changeDay(day){
+selectedDay=day
+render()
+}
 
 function getDistance(lat,lng){
 const R=6371
@@ -192,69 +155,27 @@ Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
-/* ✅ SAFE CSV PARSER */
-
-function parseCSV(text){
-
-const rows=[]
-let row=[]
-let value=""
-let insideQuotes=false
-
-for(let char of text){
-
-if(char === '"'){
-insideQuotes=!insideQuotes
-continue
-}
-
-if(char === "," && !insideQuotes){
-row.push(value.trim())
-value=""
-continue
-}
-
-if((char === "\n" || char === "\r") && !insideQuotes){
-if(value || row.length){
-row.push(value.trim())
-rows.push(row)
-}
-row=[]
-value=""
-continue
-}
-
-value+=char
-}
-
-return rows
-}
-
 function fetchData(){
-
 dataInfo.innerHTML="🔄 Fetching..."
-
 fetch(CSV+"&nocache="+Date.now())
 .then(r=>r.text())
 .then(text=>{
 dataInfo.innerHTML="🟢 "+new Date().toLocaleTimeString()
 loadData(text)
 })
+}
 
+function parseCSV(text){
+return text.split("\n").map(e=>e.split(","))
 }
 
 function loadData(text){
 
 let rows=parseCSV(text)
-
-/* ✅ REMOVE HEADER (ROW 1) */
 rows.shift()
-
-/* ✅ REMOVE EMPTY ROWS */
-rows=rows.filter(r=>r[0] && r[0].trim()!=="")
+rows=rows.filter(r=>r[0])
 
 customers=rows.map(r=>({
-
 name:r[0],
 area:r[1],
 status:(r[2]||"").toLowerCase(),
@@ -266,7 +187,6 @@ lng:parseFloat(r[15]),
 lastSale:r[17],
 lastCollection:r[18],
 route:r[19]
-
 }))
 
 customers.sort((a,b)=>b.due-a.due)
@@ -274,27 +194,41 @@ customers.sort((a,b)=>b.due-a.due)
 render()
 }
 
+function getTodayRoute(){
+let areas=tourPlan[selectedDay]||[]
+return customers.filter(c=>areas.includes(c.area))
+}
+
+function calcDistance(list){
+let total=0
+list.forEach(p=>total+=getDistance(p.lat,p.lng))
+return total*2
+}
+
 function render(){
 
-let routeDistance=calcDistance()
+let todayRoute=getTodayRoute()
+let routeDistance=calcDistance(todayRoute)
 
 routeBox.innerHTML=`
 <div class="routeGrid">
+
 <div>
-<b>🧭 Route Summary</b><br><br>
-✔ Parties: ${customers.length}<br>
+<b>🧭 ${selectedDay} Route</b><br><br>
+✔ Parties: ${todayRoute.length}<br>
 📏 ${routeDistance.toFixed(1)} km<br>
 ⏱ ${(routeDistance/25).toFixed(1)} hr<br>
 <button class="iconBtn" onclick="startTour()">🧭</button>
 </div>
 
 <div class="partyList">
-${customers.map(c=>`
+${todayRoute.map(c=>`
 <div onclick="openProfile('${c.name}')">
 <b>${c.name}</b><br>
 📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
 </div><br>`).join("")}
 </div>
+
 </div>
 `
 
@@ -327,12 +261,6 @@ ${statusBadge}${followBadge}
 
 }
 
-function calcDistance(){
-let total=0
-customers.forEach(p=>total+=getDistance(p.lat,p.lng))
-return total*2
-}
-
 function openProfile(name){
 
 let c=customers.find(x=>x.name==name)
@@ -355,39 +283,22 @@ Total Due: ${c.due}<br>
 💰 ${c.lastCollection}<br>
 🗺 ${c.route}<br>
 
-<input id="amt" placeholder="Enter collection">
-
 <div class="actionRow">
-
-<button class="iconBtn" onclick="saveCollection('${c.name}')">💾</button>
-<button class="iconBtn" onclick="markVisited('${c.name}')">✅</button>
 <button class="iconBtn" onclick="window.open('tel:${c.phone}')">📞</button>
-
 <button class="iconBtn" onclick="window.open('https://wa.me/91${c.phone}')">💬</button>
 <button class="iconBtn" onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">📍</button>
-
 </div>
 
 </div>
 `
 }
 
-function saveCollection(name){
-let amt=document.getElementById("amt").value
-collections.push({party:name,amount:amt})
-localStorage.setItem("collections",JSON.stringify(collections))
-}
-
-function markVisited(name){
-if(!visited.includes(name)){
-visited.push(name)
-localStorage.setItem("visited",JSON.stringify(visited))
-}
-profile.style.display="none"
-}
-
 function startTour(){
-let waypoints=customers.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
+
+let todayRoute=getTodayRoute()
+
+let waypoints=todayRoute.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
+
 window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${waypoints}/${HQ_LAT},${HQ_LNG}`)
 }
 
