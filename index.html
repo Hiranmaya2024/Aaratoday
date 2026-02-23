@@ -51,16 +51,16 @@ grid-template-columns:1.1fr 1fr;
 }
 }
 
-.routeTitle{
-font-size:20px;
-font-weight:700;
+.mapPreview{
+width:100%;
+height:180px;
+border-radius:14px;
+border:0;
 margin-bottom:12px;
 }
 
-.routeStats{
-font-size:16px;
-line-height:1.9;
-}
+.routeTitle{font-size:20px;font-weight:700;margin-bottom:12px;}
+.routeStats{font-size:16px;line-height:1.9;}
 
 .startBtn{
 margin-top:16px;
@@ -78,9 +78,7 @@ box-shadow:0 4px 0 #b36a00;
 .partyList{max-height:300px;overflow:auto;}
 
 .partyListItem{margin-bottom:14px;cursor:pointer;}
-
 .partyName{font-weight:600;font-size:16px;}
-
 .partyDistance{color:#555;margin-left:26px;font-size:14px;}
 
 /* GRID */
@@ -195,7 +193,6 @@ let selectedDay=new Date().toLocaleDateString('en-US',{weekday:'long'})
 document.addEventListener("DOMContentLoaded",()=>daySelect.value=selectedDay)
 
 function normalize(v){return (v||"").toLowerCase().trim()}
-
 function changeDay(day){selectedDay=day;render()}
 
 function getDistance(a,b){
@@ -206,6 +203,10 @@ const aa=Math.sin(dLat/2)**2+
 Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
 Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
+}
+
+function getMapPreviewUrl(){
+return `https://www.google.com/maps?q=${HQ.lat},${HQ.lng}&z=10&output=embed`
 }
 
 function parseCSV(text){
@@ -232,7 +233,6 @@ loadData(text)
 }
 
 function loadData(text){
-
 let rows=parseCSV(text)
 rows.shift()
 rows=rows.filter(r=>r[0])
@@ -252,7 +252,6 @@ route:r[19]
 }))
 
 customers.sort((a,b)=>b.due-a.due)
-
 render()
 }
 
@@ -275,7 +274,6 @@ return collections.reduce((s,c)=>s+Number(c.amount||0),0)
 function render(){
 
 let todayRoute=getTodayRoute()
-
 todayRoute.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
 
 let visitedCount=visited.filter(v=>todayRoute.some(p=>p.name===v)).length
@@ -294,6 +292,8 @@ routeBox.innerHTML=`
 📅 Today’s Route – ${selectedDay}
 </div>
 
+<iframe class="mapPreview" src="${getMapPreviewUrl()}" loading="lazy"></iframe>
+
 <div class="routeStats">
 ✔ Parties: ${todayRoute.length}<br>
 👣 Visited: ${visitedCount} / ${remaining}<br>
@@ -310,10 +310,8 @@ routeBox.innerHTML=`
 
 ${todayRoute.map((c,i)=>`
 <div class="partyListItem" onclick="openProfile('${c.name}')">
-
 <div class="partyName">${i+1}. ${c.name}</div>
 <div class="partyDistance">📍 ${getDistance(HQ,c).toFixed(1)} km</div>
-
 </div>
 `).join("")}
 
@@ -324,33 +322,7 @@ ${todayRoute.map((c,i)=>`
 </div>
 `
 
-/* GRID */
-
 grid.innerHTML=""
-
-customers.forEach(c=>{
-
-let isBlocked=c.status.includes("blocked")
-
-let statusClass=isBlocked?"blocked":"active"
-
-let statusBadge=isBlocked
-?'<span class="badge badgeBlocked">BLOCKED</span>'
-:'<span class="badge badgeActive">ACTIVE</span>'
-
-let followBadge=c.due==0?'<span class="badge badgeFollow">FOLLOW-UP</span>':""
-
-grid.innerHTML+=`
-<div class="card ${statusClass}" onclick="openProfile('${c.name}')">
-<b>${c.name}</b><br>
-${c.area}<br>
-₹${c.due}<br>
-📍 ${getDistance(HQ,c).toFixed(1)} km
-${statusBadge}${followBadge}
-</div>
-`
-})
-
 }
 
 function startTour(){
@@ -359,57 +331,8 @@ let waypoints=route.slice(0,9).map(p=>`${p.lat},${p.lng}`).join("/")
 window.open(`https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`)
 }
 
-function openProfile(name){
-let c=customers.find(x=>x.name==name)
-profile.style.display="block"
-profile.innerHTML=`
-<div class="profileCard">
-
-<button class="iconBtn" onclick="profile.style.display='none'">⬅</button>
-
-<h2>${c.name}</h2>
-
-📞 <a href="tel:${c.phone}">${c.phone}</a><br>
-Area: ${c.area}<br>
-Total Business: ${c.business}<br>
-Total Due: ${c.due}<br>
-
-📅 ${c.lastSale}<br>
-💰 ${c.lastCollection}<br>
-🗺 ${c.route}<br>
-
-<input id="amt" placeholder="Enter collection">
-
-<div class="actionRow">
-<button class="iconBtn" onclick="saveCollection('${c.name}')">💾</button>
-<button class="iconBtn" onclick="markVisited('${c.name}')">✅</button>
-<button class="iconBtn" onclick="window.open('tel:${c.phone}')">📞</button>
-<button class="iconBtn" onclick="window.open('https://wa.me/91${c.phone}')">💬</button>
-<button class="iconBtn" onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">📍</button>
-</div>
-
-</div>`
-}
-
-function saveCollection(name){
-let amt=document.getElementById("amt").value
-collections.push({party:name,amount:amt})
-localStorage.setItem("collections",JSON.stringify(collections))
-render()
-}
-
-function markVisited(name){
-if(!visited.includes(name)){
-visited.push(name)
-localStorage.setItem("visited",JSON.stringify(visited))
-}
-profile.style.display="none"
-render()
-}
-
 fetchData()
 
 </script>
-
 </body>
 </html>
