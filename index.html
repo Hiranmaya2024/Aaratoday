@@ -24,12 +24,7 @@ background:var(--bg);
 color:var(--text);
 }
 
-.app{
-max-width:1400px;
-margin:auto;
-}
-
-/* HEADER */
+.app{max-width:1400px;margin:auto;}
 
 .header{
 position:sticky;
@@ -42,8 +37,6 @@ font-weight:600;
 box-shadow:0 4px 14px rgba(0,0,0,0.12);
 z-index:10;
 }
-
-/* STATUS BAR */
 
 .statusBar{
 margin:14px;
@@ -59,8 +52,6 @@ gap:10px;
 box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* ROUTE */
-
 .routeGrid{
 display:grid;
 gap:16px;
@@ -71,12 +62,7 @@ margin:14px;
 .routeGrid{grid-template-columns:1fr 1fr;}
 }
 
-.partyList{
-max-height:280px;
-overflow:auto;
-}
-
-/* GRID */
+.partyList{max-height:280px;overflow:auto;}
 
 .grid{
 display:grid;
@@ -85,13 +71,8 @@ gap:14px;
 padding:14px;
 }
 
-@media(min-width:700px){
-.grid{grid-template-columns:repeat(3,1fr);}
-}
-
-@media(min-width:1200px){
-.grid{grid-template-columns:repeat(4,1fr);}
-}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1200px){.grid{grid-template-columns:repeat(4,1fr);}}
 
 /* CARD */
 
@@ -119,14 +100,10 @@ color:#fff;
 .badgeFollow{background:var(--warning);}
 .newTag{background:#7c3aed;}
 
-/* PROFILE */
-
 .profile{
 position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
+top:0;left:0;
+width:100%;height:100%;
 background:var(--bg);
 overflow:auto;
 padding:20px;
@@ -141,8 +118,6 @@ max-width:720px;
 margin:auto;
 box-shadow:0 10px 30px rgba(0,0,0,0.12);
 }
-
-/* BUTTONS */
 
 .iconBtn{
 height:54px;
@@ -217,6 +192,44 @@ Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
+/* ✅ SAFE CSV PARSER */
+
+function parseCSV(text){
+
+const rows=[]
+let row=[]
+let value=""
+let insideQuotes=false
+
+for(let char of text){
+
+if(char === '"'){
+insideQuotes=!insideQuotes
+continue
+}
+
+if(char === "," && !insideQuotes){
+row.push(value.trim())
+value=""
+continue
+}
+
+if((char === "\n" || char === "\r") && !insideQuotes){
+if(value || row.length){
+row.push(value.trim())
+rows.push(row)
+}
+row=[]
+value=""
+continue
+}
+
+value+=char
+}
+
+return rows
+}
+
 function fetchData(){
 
 dataInfo.innerHTML="🔄 Fetching..."
@@ -227,15 +240,18 @@ fetch(CSV+"&nocache="+Date.now())
 dataInfo.innerHTML="🟢 "+new Date().toLocaleTimeString()
 loadData(text)
 })
-}
 
-function parseCSV(text){
-return text.split("\n").map(e=>e.split(","))
 }
 
 function loadData(text){
 
-let rows=parseCSV(text).slice(1).filter(r=>r[0])
+let rows=parseCSV(text)
+
+/* ✅ REMOVE HEADER (ROW 1) */
+rows.shift()
+
+/* ✅ REMOVE EMPTY ROWS */
+rows=rows.filter(r=>r[0] && r[0].trim()!=="")
 
 customers=rows.map(r=>({
 
@@ -263,31 +279,22 @@ function render(){
 let routeDistance=calcDistance()
 
 routeBox.innerHTML=`
-
 <div class="routeGrid">
-
 <div>
-
 <b>🧭 Route Summary</b><br><br>
-
 ✔ Parties: ${customers.length}<br>
 📏 ${routeDistance.toFixed(1)} km<br>
 ⏱ ${(routeDistance/25).toFixed(1)} hr<br>
-
 <button class="iconBtn" onclick="startTour()">🧭</button>
-
 </div>
 
 <div class="partyList">
-
 ${customers.map(c=>`
 <div onclick="openProfile('${c.name}')">
 <b>${c.name}</b><br>
 📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
 </div><br>`).join("")}
-
 </div>
-
 </div>
 `
 
@@ -308,16 +315,12 @@ let followBadge=c.due==0
 :""
 
 grid.innerHTML+=`
-
 <div class="card ${statusClass}" onclick="openProfile('${c.name}')">
-
 <b>${c.name}</b><br>
 ${c.area}<br>
 ₹${c.due}<br>
 📍 ${getDistance(c.lat,c.lng).toFixed(1)} km
-
 ${statusBadge}${followBadge}
-
 </div>
 `
 })
@@ -337,7 +340,6 @@ let c=customers.find(x=>x.name==name)
 profile.style.display="block"
 
 profile.innerHTML=`
-
 <div class="profileCard">
 
 <button class="iconBtn" style="max-width:60px" onclick="profile.style.display='none'">⬅</button>
