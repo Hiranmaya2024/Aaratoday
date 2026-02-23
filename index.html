@@ -20,10 +20,6 @@ margin:10px;
 border-radius:12px
 }
 
-.statusText{font-size:13px}
-
-.btnRow{display:flex;gap:8px}
-
 button{
 padding:8px 12px;
 border:none;
@@ -33,11 +29,6 @@ color:#fff;
 font-size:13px
 }
 
-.box{background:#fff;margin:10px;padding:12px;border-radius:12px}
-
-.routeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.partyList{max-height:220px;overflow:auto;font-size:13px}
-
 .grid{
 display:grid;
 grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
@@ -45,17 +36,7 @@ gap:10px;
 padding:10px
 }
 
-.card{background:#fff;padding:14px;border-radius:12px;font-size:14px}
-
-.profile{
-position:fixed;top:0;left:0;width:100%;height:100%;
-background:#f2f2f2;overflow:auto;z-index:10
-}
-
-.profileCard{background:#fff;margin:10px;padding:16px;border-radius:14px}
-
-.actionRow{display:flex;gap:10px;margin-top:10px}
-.actionRow button{flex:1}
+.card{background:#fff;padding:14px;border-radius:12px}
 </style>
 </head>
 
@@ -64,85 +45,85 @@ background:#f2f2f2;overflow:auto;z-index:10
 <div class="header">Aaradhya Today</div>
 
 <div class="statusBar">
+<div id="statusText">🔄 Initializing...</div>
 
-<div id="statusText" class="statusText">🔄 Loading data...</div>
-
-<div class="btnRow">
+<div>
 <button onclick="reloadData()">🔄 Reload</button>
 <button onclick="clearCache()">🧹 Clear Cache</button>
 </div>
-
 </div>
 
-<div id="routeBox" class="box"></div>
 <div id="grid" class="grid"></div>
-<div id="profile" class="profile" style="display:none"></div>
 
 <script>
 
 const CSV_LINK="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
 
-function getCSVUrl(){
-return CSV_LINK+"&nocache="+Date.now()
+function getFreshURL(){
+return CSV_LINK + "&nocache=" + new Date().getTime()
 }
 
 function updateStatus(msg){
-statusText.innerHTML=msg
+document.getElementById("statusText").innerHTML = msg
 }
 
-function reloadData(){
-fetchData()
+async function reloadData(){
+
+updateStatus("🔄 Fetching latest data...")
+
+try{
+
+const res = await fetch(getFreshURL(), {cache: "no-store"})
+const text = await res.text()
+
+localStorage.setItem("csv", text)
+
+let time = new Date().toLocaleTimeString()
+
+updateStatus("🟢 Live Data • " + time)
+
+loadData(text)
+
+}catch{
+
+let data = localStorage.getItem("csv")
+
+if(data){
+updateStatus("🟠 Offline Data")
+loadData(data)
+}else{
+updateStatus("❌ No data available")
+}
+
+}
+
 }
 
 function clearCache(){
+
+if(!confirm("Clear all cached data and reload?")) return
 
 localStorage.clear()
 
 if('caches' in window){
 caches.keys().then(names=>{
-for(let name of names) caches.delete(name)
+for (let name of names) caches.delete(name)
 })
 }
 
-location.reload()
-}
+updateStatus("🧹 Cache cleared. Reloading...")
 
-function fetchData(){
-
-updateStatus("🔄 Syncing latest data...")
-
-fetch(getCSVUrl())
-.then(r=>r.text())
-.then(text=>{
-
-localStorage.setItem("csv",text)
-
-let time=new Date().toLocaleTimeString()
-
-updateStatus("🟢 Live Data • "+time)
-
-loadData(text)
-
-})
-.catch(()=>{
-
-let data=localStorage.getItem("csv")
-
-updateStatus("🟠 Offline Data")
-
-loadData(data)
-
-})
+setTimeout(()=>location.reload(),1000)
 }
 
 function parseCSV(text){
 const rows=[];let row=[],value="",insideQuotes=false
 for(let char of text){
-if(char=='\"'){insideQuotes=!insideQuotes;continue}
-if(char==\",\"&&!insideQuotes){row.push(value);value=\"\";continue}
-if((char==\"\\n\"||char==\"\\r\")&&!insideQuotes){
+if(char=='"'){insideQuotes=!insideQuotes;continue}
+if(char==","&&!insideQuotes){row.push(value);value="";continue}
+if((char=="\n"||char=="\r")&&!insideQuotes){
 if(value||row.length){row.push(value);rows.push(row)}
-row=[];value=\"\";continue}
+row=[];value="";continue}
 value+=char
 }
 return rows
@@ -152,36 +133,33 @@ function loadData(text){
 
 let rows=parseCSV(text).slice(1).filter(r=>r[0])
 
-customers=rows.map(r=>({
+let customers=rows.map(r=>({
 name:r[0],
 area:r[1],
-due:r[6],
-phone:r[13],
-lat:parseFloat(r[14]),
-lng:parseFloat(r[15])
+due:r[6]
 }))
 
-render()
+render(customers)
 }
 
-function render(){
+function render(list){
 
 grid.innerHTML=""
 
-customers.forEach(c=>{
-
+list.forEach(c=>{
 grid.innerHTML+=`
 <div class="card">
 <b>${c.name}</b><br>
 ${c.area}<br>
 ₹${c.due}
 </div>`
-
 })
+
 }
 
-fetchData()
+reloadData()
 
 </script>
+
 </body>
 </html>
