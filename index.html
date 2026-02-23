@@ -12,33 +12,26 @@
 <style>
 body{font-family:Poppins;margin:0;background:#f4f6f9}
 .header{background:#0d6efd;color:#fff;padding:14px;font-weight:600}
-
 .routeBox{background:#fff;margin:10px;padding:14px;border-radius:14px;
 display:grid;grid-template-columns:1fr 1fr;gap:14px;
 box-shadow:0 2px 10px rgba(0,0,0,0.08)}
-
-.leftBox{font-size:14px;line-height:1.9}
+.leftBox{font-size:14px;line-height:1.8}
 .partyList{max-height:170px;overflow:auto;font-size:13px}
-
 .grid{padding:10px;display:grid;gap:12px}
 .customer{background:#fff;padding:14px;border-radius:12px;
 box-shadow:0 2px 6px rgba(0,0,0,0.08)}
-
 .profileWrapper{background:#f4f6f9;min-height:100vh}
 .profileHeader{background:linear-gradient(135deg,#2b6cb0,#1e4e8c);
 color:#fff;padding:18px;font-size:18px;font-weight:600;display:flex;gap:10px}
-
 .backBtn{background:#ffffff33;border:none;color:#fff;padding:6px 12px;border-radius:8px}
-
 .profileCard{background:#fff;margin:15px;padding:18px;border-radius:18px;
 box-shadow:0 6px 16px rgba(0,0,0,0.15)}
-
 .info{margin:8px 0}
 .actionRow{display:flex;gap:10px;margin-top:20px}
-
 .actionRow button{flex:1;padding:14px;border:none;border-radius:10px;color:#fff;font-weight:600}
 .call{background:#34a853}.wa{background:#25D366}.nav{background:#2b6cb0}
 .tour{background:#ff9800;margin-top:10px;width:100%}
+input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #ccc}
 </style>
 </head>
 
@@ -56,14 +49,20 @@ box-shadow:0 6px 16px rgba(0,0,0,0.15)}
 
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
+const todayKey=new Date().toDateString()
+
+let visitedParties=JSON.parse(localStorage.getItem("visitedParties")||"[]")
+let collections=JSON.parse(localStorage.getItem("collections")||"[]")
+
+if(localStorage.getItem("tourDate")!==todayKey){
+localStorage.setItem("tourDate",todayKey)
+localStorage.removeItem("visitedParties")
+localStorage.removeItem("tourIndex")
+visitedParties=[]
+collections=[]
+}
 
 const csvUrl="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
-
-const todayKey=new Date().toDateString()
-if(localStorage.getItem("tourDate")!==todayKey){
-localStorage.removeItem("tourIndex")
-localStorage.setItem("tourDate",todayKey)
-}
 
 let customers=[],todayRoute=[],selected={}
 
@@ -91,19 +90,15 @@ if(offlineData){loadData(offlineData)}
 })
 
 function loadData(text){
-
 let rows=parseCSV(text).slice(1).filter(r=>r[0])
 
 customers=rows.map(r=>({
-name:r[0],area:r[1],status:r[2],reason:r[3],
-reactivate:r[4],business:r[5],due:parseFloat(r[6])||0,
-phone:r[13],lat:parseFloat(r[14]),lng:parseFloat(r[15]),
+name:r[0],area:r[1],business:r[5],due:r[6],
+phone:r[13],lat:r[14],lng:r[15],
 lastSale:r[17],lastCollection:r[18],route:r[19]
 }))
 
 todayRoute=customers
-customers.sort((a,b)=>b.due-a.due)
-
 renderAll()
 }
 
@@ -131,9 +126,14 @@ function renderAll(){
 let totalDist=calcRoute()
 let time=(totalDist/25).toFixed(1)
 
+let todayTotal=collections.reduce((sum,c)=>sum+Number(c.amount),0)
+
 routeBox.innerHTML=`
 <div class="leftBox">
 ✔ Parties: ${todayRoute.length}<br>
+✅ Visited: ${visitedParties.length}<br>
+📍 Remaining: ${todayRoute.length-visitedParties.length}<br>
+💰 Collection: ₹ ${todayTotal}<br>
 ✔ Round-trip: ${totalDist.toFixed(1)} km<br>
 ✔ Travel time: ${time} hrs<br>
 <button class="tour" onclick="startTour()">🧭 Start Tour</button>
@@ -142,32 +142,24 @@ routeBox.innerHTML=`
 <div class="partyList">
 ${todayRoute.map((c,i)=>`
 <div onclick="openProfileByName('${c.name}')">
-${i+1}. ${c.name}<br>
-📍 ${getDist(HQ_LAT,HQ_LNG,c.lat,c.lng).toFixed(1)} km
+${i+1}. ${c.name}
 </div>`).join("")}
 </div>
 `
 
 customerGrid.innerHTML=""
-
 customers.forEach(c=>{
 customerGrid.innerHTML+=`
 <div class="customer" onclick="openProfileByName('${c.name}')">
-<b>${c.name}</b><br>
-${c.area} | ₹${c.due}
+<b>${c.name}</b><br>${c.area} | ₹${c.due}
 </div>`
 })
 }
 
 function startTour(){
-
-localStorage.setItem("tourList",JSON.stringify(todayRoute))
-
 let lastIndex=localStorage.getItem("tourIndex")||0
 let remaining=todayRoute.slice(lastIndex)
-
 let route=remaining.map(c=>`${c.lat},${c.lng}`).join("/")
-
 window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${route}/${HQ_LAT},${HQ_LNG}`)
 }
 
@@ -183,10 +175,8 @@ profileScreen.style.display="block"
 
 profileScreen.innerHTML=`
 <div class="profileWrapper">
-
 <div class="profileHeader">
-<button class="backBtn" onclick="goBack()">⬅ Back</button>
-Customer Profile
+<button class="backBtn" onclick="goBack()">⬅ Back</button>Customer Profile
 </div>
 
 <div class="profileCard">
@@ -195,7 +185,6 @@ Customer Profile
 
 <div class="info"><b>Phone:</b> <a href="tel:${selected.phone}">${selected.phone}</a></div>
 <div class="info"><b>Area:</b> ${selected.area}</div>
-
 <div class="info"><b>Total Business:</b> ₹${selected.business}</div>
 <div class="info"><b>Total Due:</b> ₹${selected.due}</div>
 
@@ -203,19 +192,57 @@ Customer Profile
 <div class="info">💰 Last Payment: ${selected.lastCollection}</div>
 <div class="info">🗺 Route: ${selected.route}</div>
 
-<div class="info"><b>Status:</b> ${selected.status}</div>
-<div class="info"><b>Reason:</b> ${selected.reason}</div>
-<div class="info"><b>Reactivate by paying:</b> ₹${selected.reactivate}</div>
+<h3>💰 Enter Collection</h3>
+<input id="colAmt" type="number" placeholder="Amount">
+<select id="payMode">
+<option>Cash</option>
+<option>UPI</option>
+<option>Cheque</option>
+<option>NEFT</option>
+</select>
+<input id="remark" placeholder="Remarks">
+
+<button class="tour" onclick="saveCollection()">💾 Save Collection</button>
+<button class="tour" onclick="markVisited()">✅ Visit Done</button>
 
 <div class="actionRow">
-<button class="call" onclick="call()">📞 Call</button>
-<button class="wa" onclick="whatsapp()">🟢 WhatsApp</button>
-<button class="nav" onclick="navigate()">📍 Navigate</button>
+<button class="call" onclick="call()">📞</button>
+<button class="wa" onclick="whatsapp()">WhatsApp</button>
+<button class="nav" onclick="navigate()">📍</button>
 </div>
 
-</div>
-</div>
-`
+</div></div>`
+}
+
+function saveCollection(){
+let amt=document.getElementById("colAmt").value
+let mode=document.getElementById("payMode").value
+let remark=document.getElementById("remark").value
+
+if(!amt){alert("Enter amount");return}
+
+collections.push({party:selected.name,amount:amt,mode,remark,date:todayKey})
+localStorage.setItem("collections",JSON.stringify(collections))
+
+alert("Collection Saved")
+renderAll()
+}
+
+function markVisited(){
+
+if(!visitedParties.includes(selected.name)){
+visitedParties.push(selected.name)
+localStorage.setItem("visitedParties",JSON.stringify(visitedParties))
+}
+
+let currentIndex=todayRoute.findIndex(c=>c.name===selected.name)
+localStorage.setItem("tourIndex",currentIndex+1)
+
+goBack()
+
+let next=todayRoute[currentIndex+1]
+if(next){setTimeout(()=>openProfileByName(next.name),300)}
+else{alert("🎉 Tour Completed")}
 }
 
 function goBack(){
