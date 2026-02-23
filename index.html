@@ -49,7 +49,27 @@ input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px s
 
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
+
+const tourPlan={
+Monday:["Juria"],
+Tuesday:["Ghess"],
+Wednesday:["Gaisilate"],
+Thursday:["Dava"],
+Friday:["Padampur"],
+Saturday:["Paikmal","Mandosil"]
+}
+
+const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
+const todayAreas=tourPlan[today]||[]
 const todayKey=new Date().toDateString()
+
+let userLat=0,userLng=0,nextParty=null
+
+navigator.geolocation.watchPosition(pos=>{
+userLat=pos.coords.latitude
+userLng=pos.coords.longitude
+renderAll()
+})
 
 let visitedParties=JSON.parse(localStorage.getItem("visitedParties")||"[]")
 let collections=JSON.parse(localStorage.getItem("collections")||"[]")
@@ -94,56 +114,67 @@ let rows=parseCSV(text).slice(1).filter(r=>r[0])
 
 customers=rows.map(r=>({
 name:r[0],area:r[1],business:r[5],due:r[6],
-phone:r[13],lat:r[14],lng:r[15],
+phone:r[13],lat:parseFloat(r[14]),lng:parseFloat(r[15]),
 lastSale:r[17],lastCollection:r[18],route:r[19]
 }))
 
-todayRoute=customers
+todayRoute=customers.filter(c=>todayAreas.includes(c.area))
 renderAll()
 }
 
-function getDist(a,b,c,d){
+function getDistanceFromUser(lat,lng){
+if(!userLat||!lat) return 9999
 const R=6371
-const dLat=(c-a)*Math.PI/180
-const dLng=(d-b)*Math.PI/180
-const x=Math.sin(dLat/2)**2+
-Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*
+const dLat=(lat-userLat)*Math.PI/180
+const dLng=(lng-userLng)*Math.PI/180
+const a=Math.sin(dLat/2)**2+
+Math.cos(userLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*
 Math.sin(dLng/2)**2
-return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
-function calcRoute(){
-let total=0,prevLat=HQ_LAT,prevLng=HQ_LNG
-todayRoute.forEach(p=>{
-if(p.lat){total+=getDist(prevLat,prevLng,p.lat,p.lng)
-prevLat=p.lat;prevLng=p.lng}})
-total+=getDist(prevLat,prevLng,HQ_LAT,HQ_LNG)
-return total
+function getNextNearestParty(){
+let remaining=todayRoute.filter(p=>!visitedParties.includes(p.name)&&p.lat)
+if(remaining.length===0){nextParty=null;return}
+remaining.sort((a,b)=>getDistanceFromUser(a.lat,a.lng)-getDistanceFromUser(b.lat,b.lng))
+nextParty=remaining[0]
 }
 
 function renderAll(){
 
-let totalDist=calcRoute()
-let time=(totalDist/25).toFixed(1)
+getNextNearestParty()
 
 let todayTotal=collections.reduce((sum,c)=>sum+Number(c.amount),0)
 
+let nextHTML="Tour Completed 🎉"
+
+if(nextParty){
+let dist=getDistanceFromUser(nextParty.lat,nextParty.lng).toFixed(2)
+let time=(dist/25*60).toFixed(0)
+nextHTML=`
+<b>Next:</b> ${nextParty.name}<br>
+📏 ${dist} km<br>
+⏱ ${time} mins<br>
+<button class="tour" onclick="navigateToNext()">🧭 Go Now</button>
+`
+}
+
 routeBox.innerHTML=`
 <div class="leftBox">
+
+${nextHTML}
+<hr>
+
 ✔ Parties: ${todayRoute.length}<br>
 ✅ Visited: ${visitedParties.length}<br>
 📍 Remaining: ${todayRoute.length-visitedParties.length}<br>
-💰 Collection: ₹ ${todayTotal}<br>
-✔ Round-trip: ${totalDist.toFixed(1)} km<br>
-✔ Travel time: ${time} hrs<br>
-<button class="tour" onclick="startTour()">🧭 Start Tour</button>
+💰 Collection: ₹ ${todayTotal}
+
 </div>
 
 <div class="partyList">
 ${todayRoute.map((c,i)=>`
-<div onclick="openProfileByName('${c.name}')">
-${i+1}. ${c.name}
-</div>`).join("")}
+<div onclick="openProfileByName('${c.name}')">${i+1}. ${c.name}</div>`).join("")}
 </div>
 `
 
@@ -156,17 +187,13 @@ customerGrid.innerHTML+=`
 })
 }
 
-function startTour(){
-let lastIndex=localStorage.getItem("tourIndex")||0
-let remaining=todayRoute.slice(lastIndex)
-let route=remaining.map(c=>`${c.lat},${c.lng}`).join("/")
-window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${route}/${HQ_LAT},${HQ_LNG}`)
+function navigateToNext(){
+if(!nextParty){alert("Tour completed");return}
+window.open(`https://www.google.com/maps?q=${nextParty.lat},${nextParty.lng}`)
+openProfileByName(nextParty.name)
 }
 
 function openProfileByName(name){
-
-let index=todayRoute.findIndex(c=>c.name===name)
-localStorage.setItem("tourIndex",index)
 
 selected=customers.find(c=>c.name===name)
 
@@ -195,10 +222,8 @@ profileScreen.innerHTML=`
 <h3>💰 Enter Collection</h3>
 <input id="colAmt" type="number" placeholder="Amount">
 <select id="payMode">
-<option>Cash</option>
-<option>UPI</option>
-<option>Cheque</option>
-<option>NEFT</option>
+<option>Cash</option><option>UPI</option>
+<option>Cheque</option><option>NEFT</option>
 </select>
 <input id="remark" placeholder="Remarks">
 
@@ -218,12 +243,9 @@ function saveCollection(){
 let amt=document.getElementById("colAmt").value
 let mode=document.getElementById("payMode").value
 let remark=document.getElementById("remark").value
-
 if(!amt){alert("Enter amount");return}
-
 collections.push({party:selected.name,amount:amt,mode,remark,date:todayKey})
 localStorage.setItem("collections",JSON.stringify(collections))
-
 alert("Collection Saved")
 renderAll()
 }
@@ -235,14 +257,8 @@ visitedParties.push(selected.name)
 localStorage.setItem("visitedParties",JSON.stringify(visitedParties))
 }
 
-let currentIndex=todayRoute.findIndex(c=>c.name===selected.name)
-localStorage.setItem("tourIndex",currentIndex+1)
-
 goBack()
-
-let next=todayRoute[currentIndex+1]
-if(next){setTimeout(()=>openProfileByName(next.name),300)}
-else{alert("🎉 Tour Completed")}
+setTimeout(renderAll,300)
 }
 
 function goBack(){
@@ -259,6 +275,5 @@ navigator.serviceWorker.register('service-worker.js')
 }
 
 </script>
-
 </body>
 </html>
