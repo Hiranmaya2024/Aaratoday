@@ -1,78 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aaradhya Today</title>
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d6efd">
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
 <style>
-body{font-family:Poppins;margin:0;background:#f4f6f9}
-.header{background:#0d6efd;color:#fff;padding:14px;font-weight:600}
-.statusBar{padding:6px 14px;font-size:13px;background:#fff}
-.btnRow{padding:6px 14px;background:#fff;display:flex;gap:10px}
-button{padding:8px 12px;border:none;border-radius:6px;background:#0d6efd;color:#fff}
-.routeBox{background:#fff;margin:10px;padding:14px;border-radius:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.grid{padding:10px;display:grid;gap:12px}
-.customer{background:#fff;padding:14px;border-radius:12px}
-.profileWrapper{background:#f4f6f9;min-height:100vh}
-.profileHeader{background:#0d6efd;color:#fff;padding:14px;display:flex;gap:10px}
-.tour{background:#ff9800;width:100%;margin-top:10px}
-input,select{width:100%;padding:10px;margin:6px 0}
+body{font-family:Arial;margin:0;background:#f2f2f2}
+.header{background:#0d6efd;color:#fff;padding:14px;font-weight:bold}
+.box{background:#fff;margin:10px;padding:12px;border-radius:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;padding:10px}
+.card{background:#fff;padding:12px;border-radius:10px}
+button{padding:10px;border:none;border-radius:8px;background:#0d6efd;color:#fff;margin-top:6px}
 </style>
 </head>
 
 <body>
 
-<div id="mainScreen">
-
 <div class="header">Aaradhya Today</div>
+<div id="status" class="box"></div>
+<div id="routeBox" class="box"></div>
+<div id="grid" class="grid"></div>
 
-<div id="dataStatus" class="statusBar"></div>
-
-<div class="btnRow">
-<button onclick="forceRefresh()">🔄 Refresh</button>
-<button onclick="clearCache()">🧹 Clear Cache</button>
-</div>
-
-<div id="routeBox" class="routeBox"></div>
-<div id="customerGrid" class="grid"></div>
-
-</div>
-
-<div id="profileScreen" style="display:none"></div>
+<div id="profile" style="display:none"></div>
 
 <script>
 
+const HQ_LAT=20.9964
+const HQ_LNG=83.0526
+
 function getCSVUrl(){
-return "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv&nocache="+new Date().getTime()
+return "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv&nocache="+Date.now()
 }
 
-const tourPlan={
-Monday:["Juria"],Tuesday:["Ghess"],Wednesday:["Gaisilate"],
-Thursday:["Dava"],Friday:["Padampur"],Saturday:["Paikmal","Mandosil"]
+function updateStatus(t){status.innerHTML=t}
+
+function getDistance(lat,lng){
+const R=6371
+const dLat=(lat-HQ_LAT)*Math.PI/180
+const dLng=(lng-HQ_LNG)*Math.PI/180
+const a=Math.sin(dLat/2)**2+
+Math.cos(HQ_LAT*Math.PI/180)*Math.cos(lat*Math.PI/180)*
+Math.sin(dLng/2)**2
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
-const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
-const todayAreas=tourPlan[today]||[]
+function calcRouteDistance(list){
 
-let customers=[],todayRoute=[],selected={}
-let visitedParties=JSON.parse(localStorage.getItem("visitedParties")||"[]")
-let collections=JSON.parse(localStorage.getItem("collections")||"[]")
+let total=0
+let prevLat=HQ_LAT
+let prevLng=HQ_LNG
 
-let userLat=0,userLng=0
-
-navigator.geolocation.watchPosition(pos=>{
-userLat=pos.coords.latitude
-userLng=pos.coords.longitude
-renderAll()
+list.forEach(p=>{
+total+=getDistance(p.lat,p.lng)
+prevLat=p.lat
+prevLng=p.lng
 })
 
-function updateStatus(msg){
-document.getElementById("dataStatus").innerHTML=msg
+total+=getDistance(HQ_LAT,HQ_LNG)
+
+return total
+}
+
+function parseCSV(t){
+return t.split("\n").map(e=>e.split(","))
 }
 
 function fetchData(){
@@ -80,71 +70,37 @@ function fetchData(){
 updateStatus("🔄 Syncing latest data...")
 
 fetch(getCSVUrl())
-.then(res=>res.text())
+.then(r=>r.text())
 .then(text=>{
 
-localStorage.setItem("customerCSV",text)
-
-let time=new Date().toLocaleTimeString()
-localStorage.setItem("lastSync",time)
-
-updateStatus("🟢 Live data • "+time)
+localStorage.setItem("csv",text)
+updateStatus("🟢 Live data "+new Date().toLocaleTimeString())
 
 loadData(text)
 
 })
 .catch(()=>{
 
-let offlineData=localStorage.getItem("customerCSV")
-
-if(offlineData){
-updateStatus("🟠 Offline data • "+localStorage.getItem("lastSync"))
-loadData(offlineData)
-}else{
-updateStatus("❌ No data available")
-}
+let data=localStorage.getItem("csv")
+updateStatus("🟠 Offline data")
+loadData(data)
 
 })
-}
 
-function forceRefresh(){
-fetchData()
-}
-
-function clearCache(){
-
-localStorage.clear()
-
-caches.keys().then(names=>{
-for (let name of names) caches.delete(name)
-})
-
-alert("Cache cleared. Reloading...")
-location.reload()
-}
-
-fetchData()
-
-setInterval(fetchData,120000)
-
-function parseCSV(text){
-const rows=[];let row=[],value="",insideQuotes=false
-for(let char of text){
-if(char=='"'){insideQuotes=!insideQuotes;continue}
-if(char==","&&!insideQuotes){row.push(value);value="";continue}
-if((char=="\n"||char=="\r")&&!insideQuotes){
-if(value||row.length){row.push(value);rows.push(row)}
-row=[];value="";continue}
-value+=char}
-return rows
 }
 
 function loadData(text){
 
-let rows=parseCSV(text).slice(1).filter(r=>r[0])
+let rows=parseCSV(text).slice(1)
 
 customers=rows.map(r=>({
-name:r[0],area:r[1],due:r[6],
+name:r[0],
+area:r[1],
+status:r[2],
+reason:r[3],
+reactivate:r[4],
+business:r[5],
+due:parseFloat(r[6])||0,
 phone:r[13],
 lat:parseFloat(r[14]),
 lng:parseFloat(r[15]),
@@ -153,109 +109,83 @@ lastCollection:r[18],
 route:r[19]
 }))
 
-todayRoute=customers.filter(c=>todayAreas.includes(c.area))
+customers.sort((a,b)=>b.due-a.due)
 
-renderAll()
+render()
+
 }
 
-function getDistance(lat,lng){
-if(!userLat||!lat) return 9999
-const R=6371
-const dLat=(lat-userLat)*Math.PI/180
-const dLng=(lng-userLng)*Math.PI/180
-const a=Math.sin(dLat/2)**2+
-Math.cos(userLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*
-Math.sin(dLng/2)**2
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
-}
+function render(){
 
-function renderAll(){
-
-let remaining=todayRoute.filter(p=>!visitedParties.includes(p.name))
-remaining.sort((a,b)=>getDistance(a.lat,a.lng)-getDistance(b.lat,b.lng))
-
-let next=remaining[0]
-
-let nextHTML="Tour Completed 🎉"
-
-if(next){
-let dist=getDistance(next.lat,next.lng).toFixed(2)
-let time=(dist/25*60).toFixed(0)
-nextHTML=`<b>Next:</b> ${next.name}<br>📏 ${dist} km ⏱ ${time} min`
-}
+let routeDistance=calcRouteDistance(customers)
+let time=(routeDistance/25).toFixed(1)
 
 routeBox.innerHTML=`
-<div>${nextHTML}<br>
-✔ Parties: ${todayRoute.length}<br>
-✅ Visited: ${visitedParties.length}<br>
-💰 Collection: ₹ ${collections.reduce((s,c)=>s+Number(c.amount),0)}
-</div>
-
-<div>
-${todayRoute.map(c=>`<div onclick="openProfile('${c.name}')">${c.name}</div>`).join("")}
-</div>
+<b>Parties:</b> ${customers.length}<br>
+<b>Round trip:</b> ${routeDistance.toFixed(1)} km<br>
+<b>Travel time:</b> ${time} hr<br>
+<button onclick="startTour()">Start Tour</button>
 `
 
-customerGrid.innerHTML=""
+grid.innerHTML=""
+
 customers.forEach(c=>{
-customerGrid.innerHTML+=`
-<div class="customer" onclick="openProfile('${c.name}')">
-<b>${c.name}</b><br>${c.area} | ₹${c.due}
+
+let tag=c.status=="Blocked"?"🔴 BLOCKED":c.due>0?"💰 COLLECT":""
+
+grid.innerHTML+=`
+<div class="card" onclick="openProfile('${c.name}')">
+<b>${c.name}</b><br>
+${c.area}<br>
+₹${c.due}<br>
+📍 ${getDistance(c.lat,c.lng).toFixed(1)} km<br>
+${tag}
 </div>`
+
 })
+
 }
 
 function openProfile(name){
 
-selected=customers.find(c=>c.name===name)
+let c=customers.find(x=>x.name==name)
 
-mainScreen.style.display="none"
-profileScreen.style.display="block"
+profile.style.display="block"
+profile.innerHTML=`
+<div class="box">
 
-profileScreen.innerHTML=`
-<div class="profileWrapper">
-<div class="profileHeader">
-<button onclick="goBack()">⬅ Back</button>${selected.name}
+<button onclick="profile.style.display='none'">⬅ Back</button>
+
+<h3>${c.name}</h3>
+
+📞 <a href="tel:${c.phone}">${c.phone}</a><br>
+Area: ${c.area}<br>
+Total Business: ${c.business}<br>
+Total Due: ${c.due}<br>
+Status: ${c.status}<br>
+Reason: ${c.reason}<br>
+Reactivate: ${c.reactivate}<br>
+
+Last Sale: ${c.lastSale}<br>
+Last Payment: ${c.lastCollection}<br>
+Route: ${c.route}<br>
+
+<button onclick="window.open('https://wa.me/91${c.phone}')">WhatsApp</button>
+<button onclick="window.open('https://maps.google.com?q=${c.lat},${c.lng}')">Navigate</button>
+
 </div>
-
-<div class="profileCard">
-
-<div>📅 ${selected.lastSale}</div>
-<div>💰 ${selected.lastCollection}</div>
-<div>🗺 ${selected.route}</div>
-
-<input id="amt" placeholder="Collection amount">
-
-<button class="tour" onclick="saveCollection()">Save</button>
-<button class="tour" onclick="visitDone()">Visit Done</button>
-
-</div>
-</div>`
+`
 }
 
-function saveCollection(){
-let amt=document.getElementById("amt").value
-if(!amt)return alert("Enter amount")
-collections.push({party:selected.name,amount:amt})
-localStorage.setItem("collections",JSON.stringify(collections))
-renderAll()
+function startTour(){
+
+let waypoints=customers.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
+
+window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${waypoints}/${HQ_LAT},${HQ_LNG}`)
+
 }
 
-function visitDone(){
-visitedParties.push(selected.name)
-localStorage.setItem("visitedParties",JSON.stringify(visitedParties))
-goBack()
-}
-
-function goBack(){
-profileScreen.style.display="none"
-mainScreen.style.display="block"
-renderAll()
-}
-
-if('serviceWorker' in navigator){
-navigator.serviceWorker.register('service-worker.js')
-}
+fetchData()
 
 </script>
 </body>
