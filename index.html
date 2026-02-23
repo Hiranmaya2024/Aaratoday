@@ -8,9 +8,11 @@
 body{font-family:Arial;margin:0;background:#f2f2f2}
 .header{background:#0d6efd;color:#fff;padding:14px;font-weight:bold}
 .box{background:#fff;margin:10px;padding:12px;border-radius:12px}
+.routeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;padding:10px}
 .card{background:#fff;padding:12px;border-radius:10px}
 button{padding:10px;border:none;border-radius:8px;background:#0d6efd;color:#fff;margin-top:6px}
+.partyList{max-height:200px;overflow:auto;font-size:13px}
 </style>
 </head>
 
@@ -18,7 +20,9 @@ button{padding:10px;border:none;border-radius:8px;background:#0d6efd;color:#fff;
 
 <div class="header">Aaradhya Today</div>
 <div id="status" class="box"></div>
+
 <div id="routeBox" class="box"></div>
+
 <div id="grid" class="grid"></div>
 
 <div id="profile" style="display:none"></div>
@@ -27,6 +31,18 @@ button{padding:10px;border:none;border-radius:8px;background:#0d6efd;color:#fff;
 
 const HQ_LAT=20.9964
 const HQ_LNG=83.0526
+
+const tourPlan={
+Monday:["Juria"],
+Tuesday:["Ghess"],
+Wednesday:["Gaisilate"],
+Thursday:["Dava"],
+Friday:["Padampur"],
+Saturday:["Paikmal","Mandosil"]
+}
+
+const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
+const todayAreas=tourPlan[today]||[]
 
 function getCSVUrl(){
 return "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv&nocache="+Date.now()
@@ -45,7 +61,6 @@ return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
 }
 
 function calcRouteDistance(list){
-
 let total=0
 let prevLat=HQ_LAT
 let prevLng=HQ_LNG
@@ -57,13 +72,10 @@ prevLng=p.lng
 })
 
 total+=getDistance(HQ_LAT,HQ_LNG)
-
 return total
 }
 
-function parseCSV(t){
-return t.split("\n").map(e=>e.split(","))
-}
+function parseCSV(t){return t.split("\n").map(e=>e.split(","))}
 
 function fetchData(){
 
@@ -72,19 +84,14 @@ updateStatus("🔄 Syncing latest data...")
 fetch(getCSVUrl())
 .then(r=>r.text())
 .then(text=>{
-
 localStorage.setItem("csv",text)
 updateStatus("🟢 Live data "+new Date().toLocaleTimeString())
-
 loadData(text)
-
 })
 .catch(()=>{
-
 let data=localStorage.getItem("csv")
 updateStatus("🟠 Offline data")
 loadData(data)
-
 })
 
 }
@@ -111,20 +118,36 @@ route:r[19]
 
 customers.sort((a,b)=>b.due-a.due)
 
+todayRoute=customers.filter(c=>todayAreas.includes(c.area))
+
 render()
 
 }
 
 function render(){
 
-let routeDistance=calcRouteDistance(customers)
+let routeDistance=calcRouteDistance(todayRoute)
 let time=(routeDistance/25).toFixed(1)
 
 routeBox.innerHTML=`
-<b>Parties:</b> ${customers.length}<br>
-<b>Round trip:</b> ${routeDistance.toFixed(1)} km<br>
-<b>Travel time:</b> ${time} hr<br>
+<div class="routeGrid">
+
+<div>
+<b>🗓 Today’s Route – ${todayAreas.join(", ")}</b><br>
+✔ Parties: ${todayRoute.length}<br>
+✔ Round trip: ${routeDistance.toFixed(1)} km<br>
+✔ Travel time: ${time} hr<br>
 <button onclick="startTour()">Start Tour</button>
+</div>
+
+<div class="partyList">
+${todayRoute.map((c,i)=>`
+${i+1}. ${c.name}<br>
+📍 ${getDistance(c.lat,c.lng).toFixed(1)} km<br><br>
+`).join("")}
+</div>
+
+</div>
 `
 
 grid.innerHTML=""
@@ -151,6 +174,7 @@ function openProfile(name){
 let c=customers.find(x=>x.name==name)
 
 profile.style.display="block"
+
 profile.innerHTML=`
 <div class="box">
 
@@ -179,7 +203,7 @@ Route: ${c.route}<br>
 
 function startTour(){
 
-let waypoints=customers.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
+let waypoints=todayRoute.slice(0,9).map(c=>`${c.lat},${c.lng}`).join("/")
 
 window.open(`https://www.google.com/maps/dir/${HQ_LAT},${HQ_LNG}/${waypoints}/${HQ_LAT},${HQ_LNG}`)
 
