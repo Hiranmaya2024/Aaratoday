@@ -5,6 +5,7 @@
 <title>Aaradhya Today</title>
 
 <style>
+
 :root{
 --primary:#0d6efd;
 --bg:#eef2f7;
@@ -29,26 +30,100 @@ background:rgba(255,255,255,0.7);
 display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
 }
 
-.routeGrid{display:grid;gap:16px;margin:14px;}
-@media(min-width:768px){.routeGrid{grid-template-columns:1fr 1fr;}}
+/* ROUTE CARD */
 
-.partyList{max-height:280px;overflow:auto;}
+.routeCard{
+background:#fff;
+margin:14px;
+padding:18px;
+border-radius:22px;
+box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+.routeGrid{
+display:grid;
+gap:18px;
+}
+
+@media(min-width:768px){
+.routeGrid{
+grid-template-columns:1.1fr 1fr;
+}
+}
+
+.routeTitle{
+font-size:20px;
+font-weight:700;
+margin-bottom:12px;
+}
+
+.routeStats{
+font-size:16px;
+line-height:1.9;
+}
+
+.startBtn{
+margin-top:16px;
+height:52px;
+border:none;
+border-radius:12px;
+width:100%;
+font-size:18px;
+font-weight:600;
+background:#ff9800;
+color:#000;
+box-shadow:0 4px 0 #b36a00;
+}
+
+.partyList{max-height:300px;overflow:auto;}
+
+.partyListItem{margin-bottom:14px;cursor:pointer;}
+
+.partyName{font-weight:600;font-size:16px;}
+
+.partyDistance{color:#555;margin-left:26px;font-size:14px;}
+
+/* GRID */
 
 .grid{
-display:grid;grid-template-columns:repeat(2,1fr);
-gap:14px;padding:14px;
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:14px;
+padding:14px;
 }
+
 @media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:1200px){.grid{grid-template-columns:repeat(4,1fr);}}
 
-.card{background:var(--card);padding:14px;border-radius:16px;}
+.card{background:#fff;padding:14px;border-radius:16px;}
+
 .blocked{border-left:6px solid var(--danger);}
 .active{border-left:6px solid var(--success);}
 
-.badge{padding:4px 10px;border-radius:999px;font-size:11px;color:#fff;margin-left:6px;}
+.badge{
+padding:4px 10px;border-radius:999px;font-size:11px;color:#fff;margin-left:6px;
+}
 .badgeBlocked{background:var(--danger);}
 .badgeActive{background:var(--success);}
 .badgeFollow{background:var(--warning);}
+
+/* PROFILE */
+
+.profile{
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:var(--bg);overflow:auto;padding:20px;
+}
+
+.profileCard{
+background:#fff;border-radius:18px;padding:20px;
+max-width:720px;margin:auto;
+}
+
+.actionRow{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:12px;margin-top:18px;
+}
 
 .iconBtn{
 height:54px;border:none;border-radius:14px;
@@ -56,10 +131,14 @@ background:linear-gradient(135deg,#0d6efd,#3b82f6);
 color:#fff;font-size:22px;width:100%;
 }
 
-.profile{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);overflow:auto;padding:20px;}
-.profileCard{background:#fff;border-radius:18px;padding:20px;max-width:720px;margin:auto;}
-.actionRow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;}
-input{width:100%;padding:12px;margin-top:12px;border-radius:12px;border:1px solid #ddd;}
+input{
+width:100%;
+padding:12px;
+margin-top:12px;
+border-radius:12px;
+border:1px solid #ddd;
+}
+
 </style>
 </head>
 
@@ -200,34 +279,52 @@ let todayRoute=getTodayRoute()
 todayRoute.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
 
 let visitedCount=visited.filter(v=>todayRoute.some(p=>p.name===v)).length
-
 let remaining=todayRoute.length-visitedCount
-
 let distance=calcDistance(todayRoute)
 
 routeBox.innerHTML=`
+
+<div class="routeCard">
+
 <div class="routeGrid">
 
 <div>
+
+<div class="routeTitle">
+📅 Today’s Route – ${selectedDay}
+</div>
+
+<div class="routeStats">
 ✔ Parties: ${todayRoute.length}<br>
 👣 Visited: ${visitedCount} / ${remaining}<br>
-💰 ₹${getTodayCollection()}<br>
-📏 ${distance.toFixed(1)} km<br>
-⏱ ${(distance/25).toFixed(1)} hr<br>
-<button class="iconBtn" onclick="startTour()">🧭</button>
+💰 Today: ₹${getTodayCollection()}<br>
+✔ Round-trip: ${distance.toFixed(1)} km<br>
+✔ Travel time: ${(distance/25).toFixed(1)} hrs
+</div>
+
+<button class="startBtn" onclick="startTour()">🧭 Start Tour</button>
+
 </div>
 
 <div class="partyList">
-${todayRoute.map(c=>`
-<div onclick="openProfile('${c.name}')">
-<b>${c.name}</b><br>
-📍 ${getDistance(HQ,c).toFixed(1)} km
-</div><br>
+
+${todayRoute.map((c,i)=>`
+<div class="partyListItem" onclick="openProfile('${c.name}')">
+
+<div class="partyName">${i+1}. ${c.name}</div>
+<div class="partyDistance">📍 ${getDistance(HQ,c).toFixed(1)} km</div>
+
+</div>
 `).join("")}
+
+</div>
+
 </div>
 
 </div>
 `
+
+/* GRID */
 
 grid.innerHTML=""
 
