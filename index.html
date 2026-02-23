@@ -46,11 +46,38 @@ input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px s
 
 const csvUrl="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
 
-let dataSource="loading"
+const tourPlan={
+Monday:["Juria"],Tuesday:["Ghess"],Wednesday:["Gaisilate"],
+Thursday:["Dava"],Friday:["Padampur"],Saturday:["Paikmal","Mandosil"]
+}
+
+const today=new Date().toLocaleDateString('en-US',{weekday:'long'})
+const todayAreas=tourPlan[today]||[]
+const todayKey=new Date().toDateString()
+
+let userLat=0,userLng=0,nextParty=null
+let customers=[],todayRoute=[],selected={}
+
+let visitedParties=JSON.parse(localStorage.getItem("visitedParties")||"[]")
+let collections=JSON.parse(localStorage.getItem("collections")||"[]")
 let lastSync=localStorage.getItem("lastSync")||""
+
+navigator.geolocation.watchPosition(pos=>{
+userLat=pos.coords.latitude
+userLng=pos.coords.longitude
+renderAll()
+})
 
 function updateStatus(msg){
 document.getElementById("dataStatus").innerHTML=msg
+}
+
+if(localStorage.getItem("tourDate")!==todayKey){
+localStorage.setItem("tourDate",todayKey)
+localStorage.removeItem("visitedParties")
+localStorage.removeItem("tourIndex")
+visitedParties=[]
+collections=[]
 }
 
 updateStatus("🔄 Syncing latest data...")
@@ -58,7 +85,6 @@ updateStatus("🔄 Syncing latest data...")
 fetch(csvUrl)
 .then(res=>res.text())
 .then(text=>{
-dataSource="live"
 lastSync=new Date().toLocaleTimeString()
 localStorage.setItem("customerCSV",text)
 localStorage.setItem("lastSync",lastSync)
@@ -68,7 +94,6 @@ loadData(text)
 .catch(()=>{
 let offlineData=localStorage.getItem("customerCSV")
 if(offlineData){
-dataSource="cache"
 updateStatus(`🟠 Offline data • Last sync ${lastSync}`)
 loadData(offlineData)
 }else{
@@ -88,8 +113,6 @@ loadData(text)
 })
 },120000)
 
-let customers=[]
-
 function parseCSV(text){
 const rows=[];let row=[],value="",insideQuotes=false
 for(let char of text){
@@ -104,16 +127,135 @@ return rows
 
 function loadData(text){
 let rows=parseCSV(text).slice(1).filter(r=>r[0])
-customers=rows.map(r=>({name:r[0],area:r[1],due:r[6]}))
-renderList()
+customers=rows.map(r=>({
+name:r[0],area:r[1],due:r[6],
+phone:r[13],lat:parseFloat(r[14]),lng:parseFloat(r[15]),
+lastSale:r[17],lastCollection:r[18],route:r[19]
+}))
+todayRoute=customers.filter(c=>todayAreas.includes(c.area))
+renderAll()
 }
 
-function renderList(){
+function getDistance(lat,lng){
+if(!userLat||!lat) return 9999
+const R=6371
+const dLat=(lat-userLat)*Math.PI/180
+const dLng=(lng-userLng)*Math.PI/180
+const a=Math.sin(dLat/2)**2+
+Math.cos(userLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*
+Math.sin(dLng/2)**2
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
+}
+
+function getNextParty(){
+let remaining=todayRoute.filter(p=>!visitedParties.includes(p.name)&&p.lat)
+remaining.sort((a,b)=>getDistance(a.lat,a.lng)-getDistance(b.lat,b.lng))
+nextParty=remaining[0]
+}
+
+function renderAll(){
+
+getNextParty()
+
+let todayTotal=collections.reduce((sum,c)=>sum+Number(c.amount),0)
+
+let nextHTML="Tour Completed 🎉"
+
+if(nextParty){
+let dist=getDistance(nextParty.lat,nextParty.lng).toFixed(2)
+let time=(dist/25*60).toFixed(0)
+nextHTML=`
+<b>Next:</b> ${nextParty.name}<br>
+📏 ${dist} km<br>
+⏱ ${time} mins<br>
+<button class="tour" onclick="goNext()">🧭 Go Now</button>
+`
+}
+
+routeBox.innerHTML=`
+<div class="leftBox">
+${nextHTML}
+<hr>
+✔ Parties: ${todayRoute.length}<br>
+✅ Visited: ${visitedParties.length}<br>
+📍 Remaining: ${todayRoute.length-visitedParties.length}<br>
+💰 Collection: ₹ ${todayTotal}
+</div>
+
+<div class="partyList">
+${todayRoute.map((c,i)=>`<div onclick="openProfile('${c.name}')">${i+1}. ${c.name}</div>`).join("")}
+</div>
+`
+
 customerGrid.innerHTML=""
 customers.forEach(c=>{
 customerGrid.innerHTML+=`
-<div class="customer"><b>${c.name}</b><br>${c.area} | ₹${c.due}</div>`
+<div class="customer" onclick="openProfile('${c.name}')">
+<b>${c.name}</b><br>${c.area} | ₹${c.due}
+</div>`
 })
+}
+
+function goNext(){
+window.open(`https://www.google.com/maps?q=${nextParty.lat},${nextParty.lng}`)
+openProfile(nextParty.name)
+}
+
+function openProfile(name){
+
+selected=customers.find(c=>c.name===name)
+
+document.getElementById("profileScreen").style.display="block"
+
+profileScreen.innerHTML=`
+<div class="profileWrapper">
+<div class="profileHeader">
+<button class="backBtn" onclick="closeProfile()">⬅ Back</button>Customer Profile
+</div>
+
+<div class="profileCard">
+
+<h2>${selected.name}</h2>
+
+<div class="info">📅 Last Sale: ${selected.lastSale}</div>
+<div class="info">💰 Last Payment: ${selected.lastCollection}</div>
+<div class="info">🗺 Route: ${selected.route}</div>
+
+<h3>💰 Enter Collection</h3>
+<input id="colAmt" type="number" placeholder="Amount">
+<select id="payMode">
+<option>Cash</option><option>UPI</option>
+<option>Cheque</option><option>NEFT</option>
+</select>
+<input id="remark" placeholder="Remarks">
+
+<button class="tour" onclick="saveCollection()">💾 Save Collection</button>
+<button class="tour" onclick="visitDone()">✅ Visit Done</button>
+
+</div></div>`
+}
+
+function saveCollection(){
+let amt=document.getElementById("colAmt").value
+if(!amt){alert("Enter amount");return}
+collections.push({party:selected.name,amount:amt,date:todayKey})
+localStorage.setItem("collections",JSON.stringify(collections))
+renderAll()
+}
+
+function visitDone(){
+visitedParties.push(selected.name)
+localStorage.setItem("visitedParties",JSON.stringify(visitedParties))
+closeProfile()
+setTimeout(renderAll,300)
+}
+
+function closeProfile(){
+profileScreen.style.display="none"
+}
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register('service-worker.js')
 }
 
 </script>
