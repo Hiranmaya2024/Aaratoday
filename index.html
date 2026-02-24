@@ -28,11 +28,7 @@ width:100%;font-size:16px;font-weight:600;
 
 .previewBtn{background:#0d6efd;color:#fff;}
 .startBtn{background:#ff9800;color:#000;}
-
-.captureBtn{
-background:#198754;
-color:#fff;
-}
+.uploadBtn{background:#198754;color:#fff;}
 </style>
 </head>
 
@@ -111,13 +107,12 @@ routeBox.innerHTML=`
 ${shot
 ? `
 <img src="${shot}" class="mapPreview">
-
-<button class="btn captureBtn" onclick="removeShot()">🔄 Retake Photo</button>
+<button class="btn uploadBtn" onclick="removeShot()">🔄 Replace Screenshot</button>
 `
 : `
-<label class="btn captureBtn">
-📷 Capture Route Screenshot
-<input type="file" accept="image/*" capture="environment"
+<label class="btn uploadBtn">
+📥 Upload Route Screenshot
+<input type="file" accept="image/*"
 style="display:none"
 onchange="saveScreenshot(this)">
 </label>
@@ -158,5 +153,6 @@ render()
 fetch(CSV).then(r=>r.text()).then(loadData)
 
 </script>
+
 </body>
 </html>
