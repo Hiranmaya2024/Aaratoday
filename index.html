@@ -21,9 +21,9 @@ box-shadow:0 6px 18px rgba(0,0,0,0.08);
 .mapPreview{
 width:100%;
 height:220px;
+border:0;
 border-radius:14px;
 margin-bottom:12px;
-object-fit:cover;
 }
 
 .startBtn{
@@ -47,7 +47,7 @@ background:#ff9800;color:#000;
 
 <script>
 
-const CSV="YOUR_CSV_LINK_HERE"
+const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
 
 const HQ={lat:20.9964,lng:83.0526}
 
@@ -62,14 +62,39 @@ saturday:["paikmal","mandosil"]
 
 let customers=[]
 
-const today = new Date().toLocaleDateString('en-US',{weekday:'long'}).toLowerCase()
+const today=new Date().toLocaleDateString('en-US',{weekday:'long'}).toLowerCase()
 
 function normalize(v){
 return (v||"").toLowerCase().trim()
 }
 
+/* SAFE CSV PARSER */
 function parseCSV(text){
-return text.split("\n").map(e=>e.split(","))
+const rows=[]
+let row=[],value="",inside=false
+
+for(let char of text){
+
+if(char=='"'){inside=!inside;continue}
+
+if(char==","&&!inside){
+row.push(value);value=""
+continue
+}
+
+if((char=="\n"||char=="\r")&&!inside){
+if(value||row.length){
+row.push(value)
+rows.push(row)
+}
+row=[];value=""
+continue
+}
+
+value+=char
+}
+
+return rows
 }
 
 function getDistance(a,b){
@@ -84,22 +109,11 @@ return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
 
 function getTodayParties(){
 
-let areas=tourPlan[today] || []
+let areas=tourPlan[today]||[]
 
-return customers.filter(c =>
+return customers.filter(c=>
 areas.includes(normalize(c.area))
 )
-}
-
-function getStaticMap(route){
-
-if(!route.length) return ""
-
-let center = route[0]
-
-return `
-https://maps.googleapis.com/maps/api/staticmap?center=${center.lat},${center.lng}&zoom=11&size=600x300&markers=color:red|${HQ.lat},${HQ.lng}
-`
 }
 
 function calcDistance(route){
@@ -115,6 +129,17 @@ current=p
 total+=getDistance(current,HQ)
 
 return total
+}
+
+function getMapPreview(route){
+
+if(!route.length) return ""
+
+let first=route[0]
+
+return `
+https://maps.google.com/maps?q=${first.lat},${first.lng}&z=11&output=embed
+`
 }
 
 function render(){
@@ -135,7 +160,9 @@ routeBox.innerHTML=`
 
 <h3>📅 Today’s Route – ${today.toUpperCase()}</h3>
 
-<img class="mapPreview" src="${getStaticMap(todayRoute)}"/>
+<iframe class="mapPreview"
+src="${getMapPreview(todayRoute)}"
+loading="lazy"></iframe>
 
 ✔ Parties: ${todayRoute.length}<br>
 ✔ Round-trip: ${distance.toFixed(1)} km<br>
@@ -180,6 +207,7 @@ window.open(
 function loadData(text){
 
 let rows=parseCSV(text)
+
 rows.shift()
 
 customers=rows
@@ -194,7 +222,9 @@ lng:parseFloat(r[15])
 render()
 }
 
-fetch(CSV).then(r=>r.text()).then(loadData)
+fetch(CSV)
+.then(res=>res.text())
+.then(loadData)
 
 </script>
 
