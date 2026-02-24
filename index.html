@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aaradhya Field Recovery LIVE</title>
+<title>Field Recovery LIVE</title>
 
 <style>
 body{font-family:Arial;margin:0;background:#f4f6f9}
@@ -22,25 +22,34 @@ body{font-family:Arial;margin:0;background:#f4f6f9}
 
 <script>
 
-const csvUrl="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
+const csvUrl="PASTE YOUR CSV LINK HERE"
 
-const kpi=document.getElementById("kpi")
-const tour=document.getElementById("tour")
-const nextParty=document.getElementById("nextParty")
+const kpi = document.getElementById("kpi")
+const tour = document.getElementById("tour")
+const nextParty = document.getElementById("nextParty")
 
 let customers=[]
 let route=[]
+let currentPos={lat:20.9964,lng:83.0526}
 let collected=0,visited=0,target=0
 
+function showError(msg){
+kpi.innerHTML="❌ "+msg
+}
+
 fetch(csvUrl)
-.then(r=>r.text())
+.then(res=>{
+if(!res.ok) throw new Error("CSV not accessible")
+return res.text()
+})
 .then(text=>{
 
 let rows=text.trim().split("\n").slice(1)
 
+if(rows.length===0) throw new Error("No data in sheet")
+
 customers=rows.map(r=>{
 let c=r.split(",")
-
 return{
 name:c[0],
 due:parseFloat(c[6])||0,
@@ -58,10 +67,12 @@ renderKPI()
 loadNextParty()
 
 })
-
-.catch(()=>kpi.innerHTML="❌ Run this using Live Server or Hosting")
+.catch(err=>{
+showError(err.message)
+})
 
 function renderKPI(){
+
 kpi.innerHTML=`
 🎯 Target: ₹${target.toFixed(0)}<br>
 💰 Collected: ₹${collected}<br>
@@ -83,11 +94,11 @@ nextParty.innerHTML=`
 ${p.name}<br>
 ₹${p.due}
 
-<button class="btn" onclick="navigate(${p.lat},${p.lng})">📍 Navigate</button>
+<button class="btn" onclick="navigate(${p.lat},${p.lng})">Navigate</button>
 
 <input type="number" id="amt" placeholder="Collection amount">
 
-<button class="btn" onclick="saveCollection()">💰 Save Collection</button>
+<button class="btn" onclick="saveCollection()">Save Collection</button>
 `
 }
 
@@ -112,6 +123,5 @@ loadNextParty()
 }
 
 </script>
-
 </body>
 </html>
