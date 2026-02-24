@@ -21,6 +21,15 @@ margin-bottom:12px;
 object-fit:cover;
 }
 
+.progressBox{
+background:#f8f9fa;
+padding:14px;
+border-radius:14px;
+margin-bottom:12px;
+line-height:1.8;
+font-size:15px;
+}
+
 .btn{
 margin-top:10px;height:52px;border:none;border-radius:12px;
 width:100%;font-size:16px;font-weight:600;
@@ -62,28 +71,35 @@ function parseCSV(text){
 return text.split("\n").map(e=>e.split(","))
 }
 
+function getDistance(a,b){
+const R=6371
+const dLat=(b.lat-a.lat)*Math.PI/180
+const dLng=(b.lng-a.lng)*Math.PI/180
+const aa=Math.sin(dLat/2)**2+
+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
+Math.sin(dLng/2)**2
+return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
+}
+
 function getTodayParties(){
 let areas=tourPlan[today]||[]
 return customers.filter(c=>areas.includes(normalize(c.area)))
 }
 
-function buildGoogleMapsLink(route){
-let waypoints=route.map(p=>`${p.lat},${p.lng}`).join("/")
-return `https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`
+function calcDistance(route){
+let total=0,current=HQ
+route.forEach(p=>{total+=getDistance(current,p);current=p})
+total+=getDistance(current,HQ)
+return total
 }
 
 function saveScreenshot(input){
-
 const file=input.files[0]
-if(!file) return
-
 const reader=new FileReader()
-
 reader.onload=function(){
 localStorage.setItem("routeShot_"+today,reader.result)
 render()
 }
-
 reader.readAsDataURL(file)
 }
 
@@ -92,9 +108,34 @@ localStorage.removeItem("routeShot_"+today)
 render()
 }
 
+function markVisited(name){
+let key="visited_"+today
+let arr=JSON.parse(localStorage.getItem(key)||"[]")
+if(!arr.includes(name)){arr.push(name)}
+localStorage.setItem(key,JSON.stringify(arr))
+render()
+}
+
+function addCollection(){
+let val=prompt("Enter collection amount")
+if(!val) return
+let key="collection_"+today
+let total=Number(localStorage.getItem(key)||0)
+total+=Number(val)
+localStorage.setItem(key,total)
+render()
+}
+
 function render(){
 
 let todayRoute=getTodayParties()
+let distance=calcDistance(todayRoute)
+
+let visitedArr=JSON.parse(localStorage.getItem("visited_"+today)||"[]")
+let visitedCount=visitedArr.length
+let remaining=todayRoute.length-visitedCount
+
+let collection=localStorage.getItem("collection_"+today)||0
 
 let shot=localStorage.getItem("routeShot_"+today)
 
@@ -105,48 +146,60 @@ routeBox.innerHTML=`
 <h3>📅 Today’s Route – ${today.toUpperCase()}</h3>
 
 ${shot
-? `
-<img src="${shot}" class="mapPreview">
-<button class="btn uploadBtn" onclick="removeShot()">🔄 Replace Screenshot</button>
-`
-: `
-<label class="btn uploadBtn">
-📥 Upload Route Screenshot
-<input type="file" accept="image/*"
-style="display:none"
-onchange="saveScreenshot(this)">
-</label>
-`
+? `<img src="${shot}" class="mapPreview">
+<button class="btn uploadBtn" onclick="removeShot()">🔄 Replace Screenshot</button>`
+: `<label class="btn uploadBtn">📥 Upload Route Screenshot
+<input type="file" accept="image/*" style="display:none"
+onchange="saveScreenshot(this)"></label>`
 }
 
-<button class="btn previewBtn"
-onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
+<div class="progressBox">
+<b>🧭 Tour Progress</b><br>
+✔ Parties: ${todayRoute.length}<br>
+👣 Visited: ${visitedCount}<br>
+⏳ Remaining: ${remaining}<br>
+📏 KM: ${distance.toFixed(1)}<br>
+⏱ Time: ${(distance/25).toFixed(1)} hrs<br>
+💰 Collection: ₹${collection}
+</div>
+
+<button class="btn previewBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
 🗺 Preview Full Route
 </button>
 
-<button class="btn startBtn"
-onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
+<button class="btn startBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
 🧭 Start Tour
 </button>
+
+<hr>
+
+${todayRoute.map(p=>`
+<div>
+${p.name}
+<button onclick="markVisited('${p.name}')">✅</button>
+</div>
+`).join("")}
+
+<button class="btn uploadBtn" onclick="addCollection()">💰 Add Collection</button>
 
 </div>
 `
 }
 
-function loadData(text){
+function buildGoogleMapsLink(route){
+let waypoints=route.map(p=>`${p.lat},${p.lng}`).join("/")
+return `https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`
+}
 
+function loadData(text){
 let rows=parseCSV(text)
 rows.shift()
-
-customers=rows
-.filter(r=>r[0])
-.map(r=>({
+customers=rows.filter(r=>r[0]).map(r=>({
 name:r[0],
 area:r[1],
 lat:parseFloat(r[14]),
 lng:parseFloat(r[15])
 }))
-
 render()
 }
 
