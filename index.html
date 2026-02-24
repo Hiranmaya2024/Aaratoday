@@ -7,9 +7,9 @@
 <style>
 
 :root{
---primary:#0d6efd;
 --bg:#eef2f7;
 --card:#fff;
+--primary:#0d6efd;
 --success:#198754;
 --danger:#dc3545;
 --warning:#ff9800;
@@ -30,32 +30,21 @@ background:rgba(255,255,255,0.7);
 display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
 }
 
-/* ROUTE CARD */
-
 .routeCard{
-background:#fff;
-margin:14px;
-padding:18px;
-border-radius:22px;
+background:#fff;margin:14px;padding:18px;border-radius:22px;
 box-shadow:0 6px 18px rgba(0,0,0,0.08);
 }
 
-.routeGrid{
-display:grid;
-gap:18px;
-}
-
+.routeGrid{display:grid;gap:18px;}
 @media(min-width:768px){
-.routeGrid{
-grid-template-columns:1.1fr 1fr;
-}
+.routeGrid{grid-template-columns:1.1fr 1fr;}
 }
 
 .mapPreview{
 width:100%;
-height:180px;
-border-radius:14px;
+height:200px;
 border:0;
+border-radius:14px;
 margin-bottom:12px;
 }
 
@@ -63,38 +52,24 @@ margin-bottom:12px;
 .routeStats{font-size:16px;line-height:1.9;}
 
 .startBtn{
-margin-top:16px;
-height:52px;
-border:none;
-border-radius:12px;
-width:100%;
-font-size:18px;
-font-weight:600;
-background:#ff9800;
-color:#000;
-box-shadow:0 4px 0 #b36a00;
+margin-top:16px;height:52px;border:none;border-radius:12px;
+width:100%;font-size:18px;font-weight:600;
+background:#ff9800;color:#000;
 }
 
-.partyList{max-height:300px;overflow:auto;}
-
+.partyList{max-height:320px;overflow:auto;}
 .partyListItem{margin-bottom:14px;cursor:pointer;}
 .partyName{font-weight:600;font-size:16px;}
 .partyDistance{color:#555;margin-left:26px;font-size:14px;}
 
-/* GRID */
-
 .grid{
-display:grid;
-grid-template-columns:repeat(2,1fr);
-gap:14px;
-padding:14px;
+display:grid;grid-template-columns:repeat(2,1fr);
+gap:14px;padding:14px;
 }
-
 @media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:1200px){.grid{grid-template-columns:repeat(4,1fr);}}
 
 .card{background:#fff;padding:14px;border-radius:16px;}
-
 .blocked{border-left:6px solid var(--danger);}
 .active{border-left:6px solid var(--success);}
 
@@ -104,8 +79,6 @@ padding:4px 10px;border-radius:999px;font-size:11px;color:#fff;margin-left:6px;
 .badgeBlocked{background:var(--danger);}
 .badgeActive{background:var(--success);}
 .badgeFollow{background:var(--warning);}
-
-/* PROFILE */
 
 .profile{
 position:fixed;top:0;left:0;width:100%;height:100%;
@@ -118,8 +91,7 @@ max-width:720px;margin:auto;
 }
 
 .actionRow{
-display:grid;
-grid-template-columns:repeat(3,1fr);
+display:grid;grid-template-columns:repeat(3,1fr);
 gap:12px;margin-top:18px;
 }
 
@@ -130,11 +102,7 @@ color:#fff;font-size:22px;width:100%;
 }
 
 input{
-width:100%;
-padding:12px;
-margin-top:12px;
-border-radius:12px;
-border:1px solid #ddd;
+width:100%;padding:12px;margin-top:12px;border-radius:12px;border:1px solid #ddd;
 }
 
 </style>
@@ -205,8 +173,19 @@ Math.sin(dLng/2)**2
 return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
 }
 
-function getMapPreviewUrl(){
-return `https://www.google.com/maps?q=${HQ.lat},${HQ.lng}&z=10&output=embed`
+function buildRouteEmbed(route){
+
+if(route.length===0) return ""
+
+let origin=`${HQ.lat},${HQ.lng}`
+let destination=origin
+
+let waypoints=route
+.slice(0,8)
+.map(p=>`${p.lat},${p.lng}`)
+.join("|")
+
+return `https://www.google.com/maps/embed/v1/directions?key=&origin=${origin}&destination=${destination}&waypoints=${waypoints}&mode=driving`
 }
 
 function parseCSV(text){
@@ -233,6 +212,7 @@ loadData(text)
 }
 
 function loadData(text){
+
 let rows=parseCSV(text)
 rows.shift()
 rows=rows.filter(r=>r[0])
@@ -292,7 +272,7 @@ routeBox.innerHTML=`
 📅 Today’s Route – ${selectedDay}
 </div>
 
-<iframe class="mapPreview" src="${getMapPreviewUrl()}" loading="lazy"></iframe>
+<iframe class="mapPreview" src="${buildRouteEmbed(todayRoute)}" loading="lazy"></iframe>
 
 <div class="routeStats">
 ✔ Parties: ${todayRoute.length}<br>
@@ -334,5 +314,6 @@ window.open(`https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${
 fetchData()
 
 </script>
+
 </body>
 </html>
