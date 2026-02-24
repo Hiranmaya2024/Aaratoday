@@ -51,10 +51,44 @@ const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7
 
 const HQ={lat:20.9964,lng:83.0526}
 
+const tourPlan={
+monday:["juria"],
+tuesday:["ghess"],
+wednesday:["gaisilate"],
+thursday:["dava"],
+friday:["padampur"],
+saturday:["paikmal","mandosil"]
+}
+
 let customers=[]
+
+const today = new Date().toLocaleDateString('en-US',{weekday:'long'}).toLowerCase()
+
+function normalize(v){
+return (v||"").toLowerCase().trim()
+}
 
 function parseCSV(text){
 return text.split("\n").map(e=>e.split(","))
+}
+
+function getDistance(a,b){
+const R=6371
+const dLat=(b.lat-a.lat)*Math.PI/180
+const dLng=(b.lng-a.lng)*Math.PI/180
+const aa=Math.sin(dLat/2)**2+
+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
+Math.sin(dLng/2)**2
+return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
+}
+
+function getTodayParties(){
+
+let areas=tourPlan[today] || []
+
+return customers.filter(c =>
+areas.includes(normalize(c.area))
+)
 }
 
 function buildRouteEmbed(route){
@@ -73,19 +107,28 @@ https://www.google.com/maps?hl=en&dirflg=d&saddr=${origin}&daddr=${waypoints}/${
 `
 }
 
-function getDistance(a,b){
-const R=6371
-const dLat=(b.lat-a.lat)*Math.PI/180
-const dLng=(b.lng-a.lng)*Math.PI/180
-const aa=Math.sin(dLat/2)**2+
-Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
-Math.sin(dLng/2)**2
-return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
+function calcDistance(route){
+
+let total=0
+let current=HQ
+
+route.forEach(p=>{
+total+=getDistance(current,p)
+current=p
+})
+
+total+=getDistance(current,HQ)
+
+return total
 }
 
 function render(){
 
-customers.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
+let todayRoute=getTodayParties()
+
+todayRoute.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
+
+let distance=calcDistance(todayRoute)
 
 routeBox.innerHTML=`
 
@@ -95,9 +138,15 @@ routeBox.innerHTML=`
 
 <div>
 
+<h3>📅 Today’s Route – ${today.toUpperCase()}</h3>
+
 <iframe class="mapPreview"
-src="${buildRouteEmbed(customers)}"
+src="${buildRouteEmbed(todayRoute)}"
 loading="lazy"></iframe>
+
+✔ Parties: ${todayRoute.length}<br>
+✔ Round-trip: ${distance.toFixed(1)} km<br>
+✔ Travel time: ${(distance/25).toFixed(1)} hrs
 
 <button class="startBtn" onclick="startTour()">🧭 Start Tour</button>
 
@@ -105,12 +154,10 @@ loading="lazy"></iframe>
 
 <div class="partyList">
 
-${customers.map((c,i)=>`
+${todayRoute.map((c,i)=>`
 <div class="partyListItem">
-
 <div class="partyName">${i+1}. ${c.name}</div>
 <div class="partyDistance">📍 ${getDistance(HQ,c).toFixed(1)} km</div>
-
 </div>
 `).join("")}
 
@@ -124,7 +171,9 @@ ${customers.map((c,i)=>`
 
 function startTour(){
 
-let waypoints=customers
+let todayRoute=getTodayParties()
+
+let waypoints=todayRoute
 .slice(0,9)
 .map(p=>`${p.lat},${p.lng}`)
 .join("/")
@@ -144,6 +193,7 @@ customers=rows
 .filter(r=>r[0])
 .map(r=>({
 name:r[0],
+area:r[1],
 lat:parseFloat(r[14]),
 lng:parseFloat(r[15])
 }))
