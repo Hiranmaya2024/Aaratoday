@@ -2,208 +2,114 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aaradhya Today</title>
+<title>Aaradhya Field Recovery LIVE</title>
 
 <style>
-body{margin:0;font-family:system-ui;background:#eef2f7;}
-.app{max-width:1400px;margin:auto;}
-
-.routeCard{
-background:#fff;margin:14px;padding:18px;border-radius:22px;
-box-shadow:0 6px 18px rgba(0,0,0,0.08);
-}
-
-.mapPreview{
-width:100%;
-height:220px;
-border-radius:14px;
-margin-bottom:12px;
-object-fit:cover;
-}
-
-.progressBox{
-background:#f8f9fa;
-padding:14px;
-border-radius:14px;
-margin-bottom:12px;
-line-height:1.8;
-font-size:15px;
-}
-
-.btn{
-margin-top:10px;height:52px;border:none;border-radius:12px;
-width:100%;font-size:16px;font-weight:600;
-}
-
-.previewBtn{background:#0d6efd;color:#fff;}
-.startBtn{background:#ff9800;color:#000;}
-.uploadBtn{background:#198754;color:#fff;}
+body{font-family:Arial;margin:0;background:#f4f6f9}
+.header{background:#0d6efd;color:#fff;padding:14px;font-weight:600}
+.box{background:#fff;margin:10px;padding:14px;border-radius:10px}
+.btn{padding:12px;margin-top:8px;width:100%}
 </style>
 </head>
 
 <body>
 
-<div class="app">
-<div id="routeBox"></div>
-</div>
+<div class="header">Field Recovery LIVE</div>
+
+<div id="kpi" class="box">Loading KPI...</div>
+<div id="tour" class="box"></div>
+<div id="nextParty" class="box"></div>
 
 <script>
 
-const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
+const csvUrl="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3bMMFf71-vdGNiWFnf7pD9XuAAUSA7J-g08ocyC2LNiVOTUHi56lB-7bKTKj0KK9nJGs9vU0THQ0E/pub?gid=1044390124&single=true&output=csv"
 
-const HQ={lat:20.9964,lng:83.0526}
-
-const tourPlan={
-monday:["juria"],
-tuesday:["ghess"],
-wednesday:["gaisilate"],
-thursday:["dava"],
-friday:["padampur"],
-saturday:["paikmal","mandosil"]
-}
+const kpi=document.getElementById("kpi")
+const tour=document.getElementById("tour")
+const nextParty=document.getElementById("nextParty")
 
 let customers=[]
-const today=new Date().toLocaleDateString('en-US',{weekday:'long'}).toLowerCase()
+let route=[]
+let collected=0,visited=0,target=0
 
-function normalize(v){return (v||"").toLowerCase().trim()}
+fetch(csvUrl)
+.then(r=>r.text())
+.then(text=>{
 
-function parseCSV(text){
-return text.split("\n").map(e=>e.split(","))
+let rows=text.trim().split("\n").slice(1)
+
+customers=rows.map(r=>{
+let c=r.split(",")
+
+return{
+name:c[0],
+due:parseFloat(c[6])||0,
+phone:c[13],
+lat:parseFloat(c[14]),
+lng:parseFloat(c[15])
 }
+})
 
-function getDistance(a,b){
-const R=6371
-const dLat=(b.lat-a.lat)*Math.PI/180
-const dLng=(b.lng-a.lng)*Math.PI/180
-const aa=Math.sin(dLat/2)**2+
-Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
-Math.sin(dLng/2)**2
-return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
-}
+target=customers.reduce((s,c)=>s+c.due,0)*0.3
 
-function getTodayParties(){
-let areas=tourPlan[today]||[]
-return customers.filter(c=>areas.includes(normalize(c.area)))
-}
+route=customers.filter(c=>c.lat && c.lng)
 
-function calcDistance(route){
-let total=0,current=HQ
-route.forEach(p=>{total+=getDistance(current,p);current=p})
-total+=getDistance(current,HQ)
-return total
-}
+renderKPI()
+loadNextParty()
 
-function saveScreenshot(input){
-const file=input.files[0]
-const reader=new FileReader()
-reader.onload=function(){
-localStorage.setItem("routeShot_"+today,reader.result)
-render()
-}
-reader.readAsDataURL(file)
-}
+})
 
-function removeShot(){
-localStorage.removeItem("routeShot_"+today)
-render()
-}
+.catch(()=>kpi.innerHTML="❌ Run this using Live Server or Hosting")
 
-function markVisited(name){
-let key="visited_"+today
-let arr=JSON.parse(localStorage.getItem(key)||"[]")
-if(!arr.includes(name)){arr.push(name)}
-localStorage.setItem(key,JSON.stringify(arr))
-render()
-}
-
-function addCollection(){
-let val=prompt("Enter collection amount")
-if(!val) return
-let key="collection_"+today
-let total=Number(localStorage.getItem(key)||0)
-total+=Number(val)
-localStorage.setItem(key,total)
-render()
-}
-
-function render(){
-
-let todayRoute=getTodayParties()
-let distance=calcDistance(todayRoute)
-
-let visitedArr=JSON.parse(localStorage.getItem("visited_"+today)||"[]")
-let visitedCount=visitedArr.length
-let remaining=todayRoute.length-visitedCount
-
-let collection=localStorage.getItem("collection_"+today)||0
-
-let shot=localStorage.getItem("routeShot_"+today)
-
-routeBox.innerHTML=`
-
-<div class="routeCard">
-
-<h3>📅 Today’s Route – ${today.toUpperCase()}</h3>
-
-${shot
-? `<img src="${shot}" class="mapPreview">
-<button class="btn uploadBtn" onclick="removeShot()">🔄 Replace Screenshot</button>`
-: `<label class="btn uploadBtn">📥 Upload Route Screenshot
-<input type="file" accept="image/*" style="display:none"
-onchange="saveScreenshot(this)"></label>`
-}
-
-<div class="progressBox">
-<b>🧭 Tour Progress</b><br>
-✔ Parties: ${todayRoute.length}<br>
-👣 Visited: ${visitedCount}<br>
-⏳ Remaining: ${remaining}<br>
-📏 KM: ${distance.toFixed(1)}<br>
-⏱ Time: ${(distance/25).toFixed(1)} hrs<br>
-💰 Collection: ₹${collection}
-</div>
-
-<button class="btn previewBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
-🗺 Preview Full Route
-</button>
-
-<button class="btn startBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
-🧭 Start Tour
-</button>
-
-<hr>
-
-${todayRoute.map(p=>`
-<div>
-${p.name}
-<button onclick="markVisited('${p.name}')">✅</button>
-</div>
-`).join("")}
-
-<button class="btn uploadBtn" onclick="addCollection()">💰 Add Collection</button>
-
-</div>
+function renderKPI(){
+kpi.innerHTML=`
+🎯 Target: ₹${target.toFixed(0)}<br>
+💰 Collected: ₹${collected}<br>
+📉 Balance: ₹${(target-collected).toFixed(0)}
 `
 }
 
-function buildGoogleMapsLink(route){
-let waypoints=route.map(p=>`${p.lat},${p.lng}`).join("/")
-return `https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`
+function loadNextParty(){
+
+if(route.length===0){
+nextParty.innerHTML="<b>✅ Day Completed</b>"
+return
 }
 
-function loadData(text){
-let rows=parseCSV(text)
-rows.shift()
-customers=rows.filter(r=>r[0]).map(r=>({
-name:r[0],
-area:r[1],
-lat:parseFloat(r[14]),
-lng:parseFloat(r[15])
-}))
-render()
+let p=route[0]
+
+nextParty.innerHTML=`
+<b>Next Party</b><br><br>
+${p.name}<br>
+₹${p.due}
+
+<button class="btn" onclick="navigate(${p.lat},${p.lng})">📍 Navigate</button>
+
+<input type="number" id="amt" placeholder="Collection amount">
+
+<button class="btn" onclick="saveCollection()">💰 Save Collection</button>
+`
 }
 
-fetch(CSV).then(r=>r.text()).then(loadData)
+function navigate(lat,lng){
+window.open(`https://www.google.com/maps?q=${lat},${lng}`)
+}
+
+function saveCollection(){
+
+let amt=parseFloat(document.getElementById("amt").value)||0
+
+collected+=amt
+visited++
+
+route.shift()
+
+renderKPI()
+
+tour.innerHTML=`Visited: ${visited}`
+
+loadNextParty()
+}
 
 </script>
 
