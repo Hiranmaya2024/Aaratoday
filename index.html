@@ -13,34 +13,23 @@ background:#fff;margin:14px;padding:18px;border-radius:22px;
 box-shadow:0 6px 18px rgba(0,0,0,0.08);
 }
 
-.routeGrid{display:grid;gap:18px;}
-@media(min-width:768px){
-.routeGrid{grid-template-columns:1.1fr 1fr;}
-}
-
 .mapPreview{
 width:100%;
-height:220px;
+height:200px;
 border-radius:14px;
 margin-bottom:12px;
-border:0;
+object-fit:cover;
 }
 
-.startBtn{
-margin-top:12px;height:50px;border:none;border-radius:12px;
+.btn{
+margin-top:10px;height:50px;border:none;border-radius:12px;
 width:100%;font-size:16px;font-weight:600;
-background:#ff9800;color:#000;
 }
 
-.previewBtn{
-margin-top:10px;height:45px;border:none;border-radius:12px;
-width:100%;font-size:15px;font-weight:600;
-background:#0d6efd;color:#fff;
-}
+.previewBtn{background:#0d6efd;color:#fff;}
+.startBtn{background:#ff9800;color:#000;}
 
-.partyList{max-height:340px;overflow:auto;}
-.partyName{font-weight:600;}
-.partyDistance{color:#555;margin-left:22px;font-size:14px;}
+.partyList{max-height:320px;overflow:auto;}
 </style>
 </head>
 
@@ -71,26 +60,7 @@ const today=new Date().toLocaleDateString('en-US',{weekday:'long'}).toLowerCase(
 function normalize(v){return (v||"").toLowerCase().trim()}
 
 function parseCSV(text){
-const rows=[];let row=[],value="",inside=false
-for(let char of text){
-if(char=='"'){inside=!inside;continue}
-if(char==","&&!inside){row.push(value);value="";continue}
-if((char=="\n"||char=="\r")&&!inside){
-if(value||row.length){row.push(value);rows.push(row)}
-row=[];value="";continue}
-value+=char
-}
-return rows
-}
-
-function getDistance(a,b){
-const R=6371
-const dLat=(b.lat-a.lat)*Math.PI/180
-const dLng=(b.lng-a.lng)*Math.PI/180
-const aa=Math.sin(dLat/2)**2+
-Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
-Math.sin(dLng/2)**2
-return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa))
+return text.split("\n").map(e=>e.split(","))
 }
 
 function getTodayParties(){
@@ -98,78 +68,54 @@ let areas=tourPlan[today]||[]
 return customers.filter(c=>areas.includes(normalize(c.area)))
 }
 
-function calcDistance(route){
-let total=0,current=HQ
-route.forEach(p=>{total+=getDistance(current,p);current=p})
-total+=getDistance(current,HQ)
-return total
+function buildGoogleMapsLink(route){
+let waypoints=route.map(p=>`${p.lat},${p.lng}`).join("/")
+return `https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`
 }
 
-function buildGoogleMapsLink(route){
-
-let waypoints=route
-.slice(0,9)
-.map(p=>`${p.lat},${p.lng}`)
-.join("/")
-
-return `https://www.google.com/maps/dir/${HQ.lat},${HQ.lng}/${waypoints}/${HQ.lat},${HQ.lng}`
+function saveScreenshot(e){
+const file=e.files[0]
+const reader=new FileReader()
+reader.onload=function(){
+localStorage.setItem("routeShot_"+today,reader.result)
+render()
+}
+reader.readAsDataURL(file)
 }
 
 function render(){
 
 let todayRoute=getTodayParties()
-todayRoute.sort((a,b)=>getDistance(HQ,a)-getDistance(HQ,b))
 
-let distance=calcDistance(todayRoute)
-let previewMap=todayRoute[0]
-? `https://maps.google.com/maps?q=${todayRoute[0].lat},${todayRoute[0].lng}&z=11&output=embed`
-: ""
+let shot=localStorage.getItem("routeShot_"+today)
 
 routeBox.innerHTML=`
 
 <div class="routeCard">
 
-<div class="routeGrid">
-
-<div>
-
 <h3>📅 Today’s Route – ${today.toUpperCase()}</h3>
 
-<iframe class="mapPreview" src="${previewMap}"></iframe>
+${shot
+? `<img src="${shot}" class="mapPreview">`
+: `<input type="file" accept="image/*" onchange="saveScreenshot(this)">`
+}
 
-✔ Parties: ${todayRoute.length}<br>
-✔ Round-trip: ${distance.toFixed(1)} km<br>
-✔ Travel time: ${(distance/25).toFixed(1)} hrs
-
-<button class="previewBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
+<button class="btn previewBtn"
+onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
 🗺 Preview Full Route
 </button>
 
-<button class="startBtn" onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
+<button class="btn startBtn"
+onclick="window.open('${buildGoogleMapsLink(todayRoute)}')">
 🧭 Start Tour
 </button>
-
-</div>
-
-<div class="partyList">
-
-${todayRoute.map((c,i)=>`
-<div>
-<div class="partyName">${i+1}. ${c.name}</div>
-<div class="partyDistance">📍 ${getDistance(HQ,c).toFixed(1)} km</div>
-</div>
-<br>
-`).join("")}
-
-</div>
-
-</div>
 
 </div>
 `
 }
 
 function loadData(text){
+
 let rows=parseCSV(text)
 rows.shift()
 
@@ -188,6 +134,5 @@ render()
 fetch(CSV).then(r=>r.text()).then(loadData)
 
 </script>
-
 </body>
 </html>
