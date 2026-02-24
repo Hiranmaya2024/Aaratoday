@@ -20,7 +20,7 @@ box-shadow:0 6px 18px rgba(0,0,0,0.08);
 
 .mapPreview{
 width:100%;
-height:200px;
+height:220px;
 border:0;
 border-radius:14px;
 margin-bottom:12px;
@@ -32,7 +32,7 @@ width:100%;font-size:18px;font-weight:600;
 background:#ff9800;color:#000;
 }
 
-.partyList{max-height:320px;overflow:auto;}
+.partyList{max-height:340px;overflow:auto;}
 .partyListItem{margin-bottom:14px;cursor:pointer;}
 .partyName{font-weight:600;font-size:16px;}
 .partyDistance{color:#555;margin-left:26px;font-size:14px;}
@@ -95,15 +95,15 @@ function buildRouteEmbed(route){
 
 if(!route.length) return ""
 
-let origin=`${HQ.lat},${HQ.lng}`
+let origin = `${HQ.lat},${HQ.lng}`
 
-let waypoints = route
+let stops = route
 .slice(0,8)
 .map(p=>`${p.lat},${p.lng}`)
 .join("/")
 
 return `
-https://www.google.com/maps?hl=en&dirflg=d&saddr=${origin}&daddr=${waypoints}/${origin}&output=embed
+https://www.google.com/maps/dir/${origin}/${stops}/${origin}?output=embed&z=11
 `
 }
 
@@ -156,8 +156,10 @@ loading="lazy"></iframe>
 
 ${todayRoute.map((c,i)=>`
 <div class="partyListItem">
+
 <div class="partyName">${i+1}. ${c.name}</div>
 <div class="partyDistance">📍 ${getDistance(HQ,c).toFixed(1)} km</div>
+
 </div>
 `).join("")}
 
